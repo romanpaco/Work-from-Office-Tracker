@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>WFO Shift Tracker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+        .header { background: #16213e; padding: 20px 30px; border-bottom: 3px solid #0f3460; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 1.5rem; color: #4fc3f7; }
+        .header .actions { display: flex; gap: 10px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; }
+        .btn-primary { background: #4fc3f7; color: #1a1a2e; }
+        .btn-primary:hover { background: #81d4fa; }
+        .btn-success { background: #66bb6a; color: #fff; }
+        .btn-success:hover { background: #81c784; }
+        .btn-warning { background: #ffa726; color: #1a1a2e; }
+        .btn-warning:hover { background: #ffb74d; }
+        .btn-danger { background: #ef5350; color: #fff; }
+        .btn-danger:hover { background: #e57373; }
+        .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
+        .container { padding: 20px 30px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; opacity: 0.7; }
+        .tab-btn.active { opacity: 1; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transform: translateY(-1px); }
+        .tab-btn:hover { opacity: 1; }
+        .panel { display: none; }
+        .panel.active { display: block; }
+        /* Schedule Table */
+        .schedule-wrap { overflow-x: auto; border-radius: 8px; }
+        table { border-collapse: collapse; width: 100%; min-width: 800px; font-size: 0.8rem; }
+        th { background: #0f3460; color: #4fc3f7; padding: 8px 6px; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
+        td { padding: 6px; border: 1px solid #2a2a4a; text-align: center; white-space: nowrap; }
+        tr:nth-child(even) { background: #1e1e3a; }
+        tr:nth-child(odd) { background: #1a1a2e; }
+        tr.weekend { background: #2d2d1a !important; }
+        tr.weekend td.date-col, tr.weekend td.day-col { background: #2d2d1a; }
+        tr:nth-child(even) td.date-col, tr:nth-child(even) td.day-col { background: #1e1e3a; }
+        tr:nth-child(odd) td.date-col, tr:nth-child(odd) td.day-col { background: #1a1a2e; }
+        tr.total-row td.date-col, tr.total-row td.day-col { background: #0f3460; }
+        tr.row-highlight { background: #2e4a6e !important; }
+        tr.row-highlight td.date-col, tr.row-highlight td.day-col { background: #2e4a6e; }
+        #scheduleTable tbody tr { cursor: pointer; }
+        td.wfo { background: #1b5e20; color: #a5d6a7; font-weight: bold; }
+        td.in-office { background: #1b5e20; color: #a5d6a7; font-weight: bold; }
+        td.off { color: #666; }
+        td.date-col { text-align: left; font-weight: 600; color: #90caf9; position: sticky; left: 0; z-index: 5; background: #1a1a2e; border-right: 1px solid #2a2a4a; }
+        td.day-col { text-align: left; color: #aaa; position: sticky; left: 90px; z-index: 5; background: #1a1a2e; border-right: 2px solid #0f3460; }
+        th:nth-child(1) { position: sticky; left: 0; z-index: 11; background: #0f3460; }
+        th:nth-child(2) { position: sticky; left: 90px; z-index: 11; background: #0f3460; border-right: 2px solid #4fc3f7; }
+        tr.total-row { background: #0f3460 !important; font-weight: bold; }
+        tr.total-row td { color: #4fc3f7; border-top: 2px solid #4fc3f7; }
+        /* Summary */
+        .summary-table { max-width: 800px; }
+        .summary-table th { text-align: left; padding: 12px; }
+        .summary-table td { padding: 10px 12px; }
+        .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: #16213e; border: 1px solid #0f3460; border-radius: 8px; padding: 20px; text-align: center; }
+        .stat-card .value { font-size: 2rem; font-weight: bold; color: #4fc3f7; }
+        .stat-card .label { font-size: 0.8rem; color: #aaa; margin-top: 5px; }
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: #16213e; border-radius: 12px; padding: 30px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        .modal h2 { color: #4fc3f7; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #aaa; font-size: 0.85rem; }
+        select, input { width: 100%; padding: 10px; border: 1px solid #0f3460; border-radius: 6px; background: #1a1a2e; color: #eee; font-size: 0.9rem; }
+        .date-list { max-height: 300px; overflow-y: auto; border: 1px solid #0f3460; border-radius: 6px; padding: 10px; }
+        .date-item { display: flex; align-items: center; padding: 6px 8px; border-radius: 4px; margin-bottom: 4px; cursor: pointer; }
+        .date-item:hover { background: #0f3460; }
+        .date-item.selected { background: #1b5e20; }
+        .date-item.weekend { opacity: 0.6; }
+        .date-item input { width: auto; margin-right: 10px; }
+        .date-item .day-name { color: #aaa; margin-left: auto; font-size: 0.8rem; }
+        /* File upload */
+        .upload-area { border: 2px dashed #0f3460; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .upload-area:hover { border-color: #4fc3f7; background: #16213e; }
+        .upload-area p { color: #aaa; margin-top: 10px; }
+        #fileInput { display: none; }
+        .month-selector { margin-bottom: 15px; }
+        .month-selector select { max-width: 300px; }
+    </style>
+</head>
+<body>
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" style="display:flex; justify-content:center; align-items:center; min-height:100vh;">
+        <div class="modal" style="max-width:400px;">
+            <h2 style="color:#4fc3f7; text-align:center;">WFO Shift Tracker</h2>
+            <p style="color:#aaa; text-align:center; margin-bottom:20px;">Login to continue</p>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="loginUser" placeholder="e.g. jcurtis" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="loginPass" placeholder="Password">
+            </div>
+            <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="doLogin()">Login</button>
+            <p id="loginError" style="color:#ef5350; margin-top:10px; text-align:center; display:none;"></p>
+        </div>
+    </div>
+
+    <!-- MAIN APP (hidden until login) -->
+    <div id="mainApp" style="display:none;">
+    <div class="header">
+        <h1>WFO Shift Tracker <span id="loggedInUser" style="font-size:0.8rem; color:#aaa;"></span></h1>
+        <div class="actions">
+            <button class="btn btn-primary" onclick="showRequestModal()">Submit WFO Request</button>
+            <button class="btn btn-danger" id="btnRemoveWFO" style="display:none;" onclick="showRemoveModal()">Remove WFO</button>
+            <button class="btn btn-sm" style="background:#666;color:#fff;" onclick="showChangePassword()">Change Password</button>
+            <button class="btn btn-sm" style="background:#333;color:#aaa;" onclick="doLogout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="btn tab-btn active" id="tabSchedule" onclick="switchTab('schedule')" style="background:#5c6bc0;color:#fff;">📅 Schedule</button>
+            <button class="btn tab-btn" id="tabSummary" onclick="switchTab('summary')" style="background:#7b1fa2;color:#fff;">📊 WFO Summary</button>
+            <button class="btn tab-btn" id="tabImport" style="display:none;background:#f57c00;color:#fff;" onclick="switchTab('upload')">📁 Import Schedule</button>
+            <button class="btn tab-btn" id="btnCopySchedule" style="display:none;background:#00897b;color:#fff;" onclick="copyScheduleToClipboard()">📋 Export Schedule</button>
+        </div>
+
+        <!-- SCHEDULE PANEL -->
+        <div id="panel-schedule" class="panel active">
+            <div class="month-selector">
+                <select id="monthSelect" onchange="renderMonth()"></select>
+            </div>
+            <div class="schedule-wrap">
+                <table id="scheduleTable"><tbody></tbody></table>
+            </div>
+        </div>
+
+        <!-- SUMMARY PANEL -->
+        <div id="panel-summary" class="panel">
+            <div style="background: #0f3460; border-left: 4px solid #ffa726; padding: 12px 18px; border-radius: 6px; margin-bottom: 20px;">
+                <span style="color: #ffa726; font-weight: bold;">⚠️ Reminder:</span>
+                <span style="color: #eee;"> Average of 9 WFO per month</span>
+            </div>
+            <div class="stat-cards" id="statCards"></div>
+            <div class="schedule-wrap summary-table">
+                <table id="summaryTable"><tbody></tbody></table>
+            </div>
+        </div>
+
+        <!-- UPLOAD PANEL -->
+        <div id="panel-upload" class="panel">
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <h3>Import Schedule from Excel</h3>
+                <p>Click to select your .xlsx file or drag and drop</p>
+                <p style="font-size:0.75rem; margin-top:10px; color:#666;">Reads all sheets and extracts WFO data</p>
+            </div>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileUpload(event)">
+            <p id="uploadStatus" style="margin-top:15px; color:#66bb6a;"></p>
+        </div>
+    </div>
+
+    <!-- WFO REQUEST MODAL -->
+    <div class="modal-overlay" id="requestModal">
+        <div class="modal">
+            <h2>Submit WFO Request</h2>
+            <div class="form-group">
+                <label>Select Month</label>
+                <select id="modalMonthSelect" onchange="onModalMonthChange()"></select>
+            </div>
+            <div class="form-group">
+                <label>Select Your Name</label>
+                <select id="empSelect"><option value="">-- Choose Employee --</option></select>
+            </div>
+            <div class="form-group">
+                <label>Select WFO Dates</label>
+                <div style="margin-bottom:8px;">
+                    <button class="btn btn-sm btn-danger" onclick="clearSelection()">Clear</button>
+                </div>
+                <div class="date-list" id="dateList"></div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-success" onclick="submitWFO()">Submit</button>
+                <button class="btn btn-danger" onclick="closeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REMOVE WFO MODAL -->
+    <div class="modal-overlay" id="removeModal">
+        <div class="modal">
+            <h2 style="color:#ef5350;">Remove WFO</h2>
+            <div class="form-group">
+                <label>Select Month</label>
+                <select id="removeMonthSelect" onchange="onRemoveMonthChange()"></select>
+            </div>
+            <div class="form-group">
+                <label>Select Employee</label>
+                <select id="removeEmpSelect" onchange="loadRemoveDates()"><option value="">-- Choose Employee --</option></select>
+            </div>
+            <div class="form-group">
+                <label>Select WFO dates to remove</label>
+                <div style="margin-bottom:8px;">
+                    <button class="btn btn-sm btn-primary" onclick="selectAllRemoveDates()">Select All</button>
+                    <button class="btn btn-sm btn-danger" onclick="clearRemoveDates()">Clear</button>
+                </div>
+                <div class="date-list" id="removeDateList"></div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-danger" onclick="removeWFO()">Remove Selected</button>
+                <button class="btn btn-primary" onclick="closeRemoveModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script>
+    // ============================================================
+    // DATA STORE
+    // ============================================================
+    let scheduleData = {}; // { "May 2026": { employees: [...], rows: [{date, day, shifts: {...}}] } }
+    let currentMonth = "";
+
+    // Employee list from latest month (May 2026)
+    const DEFAULT_EMPLOYEES = [
+        "Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria",
+        "Mikko Dumdum","Chester Rabino","Alexander Tan",
+        "Alvin Ching","Bryan Lustria","Kurt Santos","Lance Gabaleno","Angelo So",
+        "John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Roman Paco",
+        "Justin Quinn","Michael Sy","RayAnn Magpantay","Rayner Salvador","Cris Aguda","Itzak Dekire","Melvin Del Cruz"
+    ];
+
+    // Initialize with all months from Jan 2026 to Dec 2026
+    function initDefaultData() {
+        const now = new Date();
+
+        // Generate months from January 2026 onwards (full year)
+        for (let m = 0; m < 12; m++) {
+            const year = 2026;
+            const daysInMonth = new Date(year, m + 1, 0).getDate();
+            const monthName = new Date(year, m, 1).toLocaleString('en', { month: 'long', year: 'numeric' });
+
+            const rows = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dt = new Date(year, m, d);
+                const shifts = {};
+                DEFAULT_EMPLOYEES.forEach(emp => { shifts[emp] = ""; });
+                rows.push({
+                    date: dt,
+                    day: dt.toLocaleString('en', { weekday: 'long' }),
+                    shifts: shifts
+                });
+            }
+            scheduleData[monthName] = { employees: [...DEFAULT_EMPLOYEES], rows: rows };
+        }
+
+        // Set current month as active
+        const currentMonthName = now.toLocaleString('en', { month: 'long', year: 'numeric' });
+        currentMonth = scheduleData[currentMonthName] ? currentMonthName : "January 2026";
+
+        // Load WFO data from the shared spreadsheet (Jan 2026 - May 2026)
+        loadHistoricalWFO();
+
+        // Remove "Mark Sy" from any loaded data
+        Object.keys(scheduleData).forEach(key => {
+            const d = scheduleData[key];
+            d.employees = d.employees.filter(e => e !== 'Mark Sy');
+            d.rows.forEach(row => { delete row.shifts['Mark Sy']; });
+        });
+
+        // Load from localStorage if available (merges user WFO submissions)
+        const DATA_VERSION = '2026-06-10'; // Update this when hardcoded data changes
+        const savedVersion = localStorage.getItem('wfo_data_version');
+        if (savedVersion !== DATA_VERSION) {
+            // Clear old localStorage when hardcoded data is updated
+            localStorage.removeItem('wfo_schedule_data');
+            localStorage.setItem('wfo_data_version', DATA_VERSION);
+        }
+
+        const saved = localStorage.getItem('wfo_schedule_data');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                Object.keys(parsed).forEach(key => {
+                    scheduleData[key] = parsed[key];
+                    if (scheduleData[key].rows) {
+                        scheduleData[key].rows.forEach(row => {
+                            row.date = new Date(row.date);
+                            if (!row.shifts) row.shifts = {};
+                            if (!row.styles) row.styles = {};
+                        });
+                    }
+                });
+                const keys = Object.keys(scheduleData);
+                if (keys.length > 0) currentMonth = keys[keys.length - 1];
+            } catch(e) {
+                localStorage.removeItem('wfo_schedule_data');
+            }
+        }
+
+        // Re-apply hardcoded data AFTER localStorage to ensure it always shows
+        loadHistoricalWFO();
+
+        // Remove "Mark Sy" from any loaded data
+        Object.keys(scheduleData).forEach(key => {
+            const d = scheduleData[key];
+            d.employees = d.employees.filter(e => e !== 'Mark Sy');
+            d.rows.forEach(row => { delete row.shifts['Mark Sy']; });
+        });
+
+        // Set current month to June 2026 (current month)
+        currentMonth = "June 2026";
+
+        populateMonthSelector();
+        renderMonth();
+
+        // Load latest WFO submissions from cloud (syncs between all employees)
+        loadFromCloud();
+    }
+
+    // Load actual WFO data from spreadsheet
+    function loadHistoricalWFO() {
+        // Format: month index (0=Jan), day, employee name
+        // Data extracted from the shared "Work from Office" spreadsheet
+        const wfoData = {
+            // JANUARY 2026
+            0: {
+                1: ["Nico Dabon"],
+                2: ["Joshua Curtis","Nico Dabon"],
+                3: ["Joshua Curtis","Nico Dabon","Alfred Alegria","Chester Rabino","Lance Gabaleno","Angelo So","Patrick Uy","Roman Paco","Justin Quinn","Melvin Del Cruz"],
+                4: ["Chester Rabino","Mikko Dumdum","Melvin Del Cruz"],
+                5: ["Mikko Dumdum"],
+                6: ["Nico Dabon","Mikko Dumdum","Kurt Santos","John Subong","Patrick Uy","Roman Paco","Justin Quinn","Melvin Del Cruz"],
+                7: ["Mikko Dumdum","Angelo So","John Subong","Patrick Uy","Roman Paco","Melvin Del Cruz"],
+                8: ["Joshua Curtis","Mikko Dumdum","John Subong","Patrick Uy","Melvin Del Cruz"],
+                9: ["Joshua Curtis","Alexander Tan","John Subong","Patrick Uy","Justin Quinn","Melvin Del Cruz"],
+                10: ["Joshua Curtis","Carlo Santia","Alfred Alegria","Chester Rabino","Mikko Dumdum","Lance Gabaleno","Angelo So","John Subong","RayAnn Magpantay","Melvin Del Cruz"],
+                11: ["Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","John Subong","Melvin Del Cruz"],
+                12: ["Mikko Dumdum","Chester Rabino","John Subong","Ruth Gabaldon","Patrick Uy","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                13: ["Joshua Curtis","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Angelo So","John Subong","Patrick Uy","Justin Quinn","Cris Aguda"],
+                14: ["Joshua Curtis","Carlo Santia","Alfred Alegria","Chester Rabino","Alexander Tan","John Subong","Ruth Gabaldon","Patrick Uy","Cris Aguda"],
+                15: ["Joshua Curtis","Carlo Santia","RK Malabrigo","Alfred Alegria","Chester Rabino","Alexander Tan","Kurt Santos","John Subong","Patrick Uy","Justin Quinn","Melvin Del Cruz"],
+                16: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","John Subong","Patrick Uy","Rayner Salvador","Melvin Del Cruz"],
+                17: ["Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","John Subong","Patrick Uy","Justin Quinn","RayAnn Magpantay"],
+                18: ["Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","John Subong","RayAnn Magpantay","Melvin Del Cruz"],
+                19: ["Mikko Dumdum","Angelo So","John Subong","Ruth Gabaldon","Patrick Uy","Justin Quinn","Cris Aguda"],
+                20: ["Carlo Santia","John Subong","Patrick Uy","Justin Quinn","Rayner Salvador","Cris Aguda","Melvin Del Cruz"],
+                21: ["Nico Dabon","Carlo Santia","Alexander Tan","Lance Gabaleno","John Subong","Patrick Uy","Rayner Salvador","Melvin Del Cruz"],
+                22: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Mikko Dumdum","Chester Rabino","Alexander Tan","John Subong","Patrick Uy","Melvin Del Cruz"],
+                23: ["Joshua Curtis","Alexander Tan","John Subong","Patrick Uy","Justin Quinn","Rayner Salvador","Melvin Del Cruz"],
+                24: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Lance Gabaleno","Angelo So","John Subong","RayAnn Magpantay","Melvin Del Cruz"],
+                25: ["Nico Dabon","RK Malabrigo","Mikko Dumdum","Chester Rabino","Alexander Tan","Lance Gabaleno","Angelo So","John Subong","RayAnn Magpantay"],
+                26: ["Nico Dabon","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Lance Gabaleno","Angelo So","John Subong","Patrick Uy","Roman Paco","Justin Quinn"],
+                27: ["Alfred Alegria","Angelo So","John Subong","Patrick Uy","Roman Paco"],
+                28: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alfred Alegria","Chester Rabino","Alexander Tan","John Subong","Cris Aguda","Melvin Del Cruz"],
+                29: ["Nico Dabon","Carlo Santia","RK Malabrigo","Chester Rabino","Alexander Tan","Angelo So","John Subong","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                30: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Kurt Santos","John Subong","Patrick Uy","Justin Quinn","RayAnn Magpantay","Rayner Salvador","Cris Aguda","Melvin Del Cruz"],
+                31: ["Nico Dabon","RK Malabrigo","Mikko Dumdum","Chester Rabino","Kurt Santos","Lance Gabaleno","Angelo So","John Subong","Patrick Uy","RayAnn Magpantay","Melvin Del Cruz"]
+            },
+            // FEBRUARY 2026
+            1: {
+                1: ["Chester Rabino","Mikko Dumdum","Kurt Santos","Lance Gabaleno","Angelo So","Patrick Uy","Roman Paco","Melvin Del Cruz"],
+                2: ["Chester Rabino","Kurt Santos","Lance Gabaleno","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                3: ["Joshua Curtis","Carlo Santia","Alfred Alegria","Mikko Dumdum","Alexander Tan","Lance Gabaleno","John Subong","Cris Aguda","Justin Quinn","Melvin Del Cruz"],
+                4: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Alexander Tan","Lance Gabaleno","John Subong","Cris Aguda"],
+                5: ["Nico Dabon","Carlo Santia","RK Malabrigo","Mikko Dumdum","Chester Rabino","Alexander Tan","John Subong","Ruth Gabaldon","Patrick Uy","Melvin Del Cruz"],
+                6: ["Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","Ruth Gabaldon","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                7: ["Joshua Curtis","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","Patrick Uy","Justin Quinn","Rayner Salvador","Cris Aguda","Melvin Del Cruz"],
+                8: ["Chester Rabino","Mikko Dumdum","Kurt Santos","Alexander Tan","Angelo So","Ruth Gabaldon","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                9: ["Joshua Curtis","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","John Subong","Ruth Gabaldon","Patrick Uy","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                10: ["Joshua Curtis","RK Malabrigo","Mikko Dumdum","Chester Rabino","Kurt Santos","Angelo So","John Subong","Ruth Gabaldon","Patrick Uy","RayAnn Magpantay","Rayner Salvador","Cris Aguda"],
+                11: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Alfred Alegria","Chester Rabino","Alexander Tan","Kurt Santos","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                12: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","John Subong","Ruth Gabaldon","Patrick Uy","Justin Quinn","RayAnn Magpantay","Cris Aguda"],
+                13: ["Joshua Curtis","Nico Dabon","Alfred Alegria","Mikko Dumdum","Chester Rabino","John Subong","Patrick Uy","Roman Paco","Cris Aguda"],
+                14: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Alexander Tan","Patrick Uy","Rayner Salvador","Cris Aguda","Melvin Del Cruz"],
+                15: ["Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Patrick Uy","RayAnn Magpantay","Rayner Salvador","Cris Aguda","Melvin Del Cruz"],
+                16: ["Joshua Curtis","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","John Subong","Ruth Gabaldon","Patrick Uy","Melvin Del Cruz"],
+                17: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Alexander Tan","Angelo So","John Subong","Ruth Gabaldon","Justin Quinn","RayAnn Magpantay","Cris Aguda"],
+                18: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Mikko Dumdum","Chester Rabino","Alexander Tan","Lance Gabaleno","Angelo So","John Subong","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                19: ["Nico Dabon","Carlo Santia","Alfred Alegria","Chester Rabino","Alexander Tan","Angelo So","John Subong","Patrick Uy","Roman Paco","RayAnn Magpantay","Rayner Salvador","Cris Aguda","Melvin Del Cruz"],
+                20: ["Nico Dabon","RK Malabrigo","Alfred Alegria","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","John Subong","Ruth Gabaldon","Patrick Uy","Roman Paco","RayAnn Magpantay","Rayner Salvador","Cris Aguda"],
+                21: ["Joshua Curtis","Nico Dabon","Alfred Alegria","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","Patrick Uy","RayAnn Magpantay","Rayner Salvador","Melvin Del Cruz"],
+                22: ["Nico Dabon","Chester Rabino","Alexander Tan","RayAnn Magpantay","Rayner Salvador","Melvin Del Cruz"],
+                23: ["John Subong","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                24: ["Joshua Curtis","Alfred Alegria","John Subong","Ruth Gabaldon","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                25: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alfred Alegria","John Subong","Patrick Uy","Melvin Del Cruz"],
+                26: ["RK Malabrigo","John Subong","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                27: ["Nico Dabon","Carlo Santia","Kurt Santos","Lance Gabaleno","John Subong","Patrick Uy","Roman Paco","Justin Quinn","RayAnn Magpantay","Melvin Del Cruz"],
+                28: ["Nico Dabon","RK Malabrigo","Alfred Alegria","Kurt Santos","Angelo So","Melvin Del Cruz"]
+            },
+            // MARCH 2026
+            2: {
+                1: ["Alfred Alegria","Mikko Dumdum","Kurt Santos","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                2: ["Mikko Dumdum","Chester Rabino","Kurt Santos","Ruth Gabaldon","Cris Aguda","Melvin Del Cruz"],
+                3: ["Joshua Curtis","Carlo Santia","Alfred Alegria","Angelo So","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                4: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alexander Tan","Angelo So","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                5: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Lance Gabaleno","Angelo So","John Subong","Patrick Uy","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                6: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Lance Gabaleno","John Subong","Dana Dela Cruz","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                7: ["Joshua Curtis","Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Alexander Tan","Kurt Santos","Patrick Uy","Justin Quinn","Michael Sy","RayAnn Magpantay","Rayner Salvador","Melvin Del Cruz"],
+                8: ["Joshua Curtis","Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Kurt Santos","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Roman Paco","Justin Quinn","Michael Sy","RayAnn Magpantay","Cris Aguda","Melvin Del Cruz"],
+                9: ["Alfred Alegria","Mikko Dumdum","Chester Rabino","John Subong","Ruth Gabaldon","Cris Aguda","Melvin Del Cruz"],
+                10: ["Joshua Curtis","Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Kurt Santos","John Subong","Patrick Uy","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                11: ["Joshua Curtis","Nico Dabon","Alfred Alegria","Alexander Tan","Angelo So","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Justin Quinn","Cris Aguda"],
+                12: ["Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","John Subong","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                13: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Lance Gabaleno","Angelo So","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Roman Paco","Justin Quinn","RayAnn Magpantay","Cris Aguda"],
+                14: ["Joshua Curtis","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","John Subong","Dana Dela Cruz","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                15: ["Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Kurt Santos","Dana Dela Cruz","Patrick Uy","Justin Quinn","Michael Sy","RayAnn Magpantay","Cris Aguda","Melvin Del Cruz"],
+                16: ["RK Malabrigo","Mikko Dumdum","John Subong","Ruth Gabaldon","Patrick Uy","Justin Quinn","Michael Sy","RayAnn Magpantay","Melvin Del Cruz"],
+                17: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Alexander Tan","Angelo So","John Subong","Patrick Uy","Melvin Del Cruz"],
+                18: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Lance Gabaleno","Angelo So","John Subong","Dana Dela Cruz","Patrick Uy","Roman Paco","Justin Quinn","Rayner Salvador","Cris Aguda","Melvin Del Cruz"],
+                19: ["RK Malabrigo","Alfred Alegria","Chester Rabino","Alexander Tan","Angelo So","John Subong","Ruth Gabaldon","Patrick Uy","Justin Quinn","Michael Sy","RayAnn Magpantay","Cris Aguda","Melvin Del Cruz"],
+                20: ["Joshua Curtis","Nico Dabon","Alfred Alegria","Angelo So","John Subong","Ruth Gabaldon","Patrick Uy","Roman Paco","Cris Aguda"],
+                21: ["RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","John Subong","Patrick Uy","Michael Sy","RayAnn Magpantay","Cris Aguda","Melvin Del Cruz"],
+                22: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","John Subong","Michael Sy","RayAnn Magpantay","Rayner Salvador","Cris Aguda","Melvin Del Cruz"],
+                23: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Alfred Alegria","Chester Rabino","John Subong","Patrick Uy","Justin Quinn","Michael Sy","Cris Aguda","Melvin Del Cruz"],
+                24: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Alexander Tan","Lance Gabaleno","Angelo So","John Subong","Patrick Uy","Justin Quinn","Melvin Del Cruz"],
+                25: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Alexander Tan","John Subong","Patrick Uy","Melvin Del Cruz"],
+                26: ["RK Malabrigo","Chester Rabino","Alexander Tan","John Subong","Patrick Uy","Melvin Del Cruz"],
+                27: ["Joshua Curtis","Carlo Santia","Alfred Alegria","Kurt Santos","Lance Gabaleno","John Subong","Roman Paco","Justin Quinn","Michael Sy","Melvin Del Cruz"],
+                28: ["Alfred Alegria","Chester Rabino","Kurt Santos","Lance Gabaleno","John Subong","Ruth Gabaldon","Patrick Uy","Roman Paco","Michael Sy","RayAnn Magpantay","Melvin Del Cruz"],
+                29: ["Alfred Alegria","Chester Rabino","Kurt Santos","Lance Gabaleno","Angelo So","John Subong","Patrick Uy","Michael Sy","RayAnn Magpantay","Melvin Del Cruz"],
+                30: ["John Subong","Patrick Uy","Melvin Del Cruz"],
+                31: ["Joshua Curtis","Chester Rabino","John Subong","Patrick Uy","Melvin Del Cruz"]
+            },
+            // APRIL 2026
+            3: {
+                1: ["Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                2: ["Joshua Curtis","Nico Dabon","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Patrick Uy","Roman Paco","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                3: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Patrick Uy","Roman Paco","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                4: ["Joshua Curtis","Nico Dabon","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Patrick Uy","Roman Paco","Melvin Del Cruz"],
+                5: ["Joshua Curtis","Alfred Alegria","Mikko Dumdum","Chester Rabino","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Michael Sy","Cris Aguda","Melvin Del Cruz"],
+                6: ["Nico Dabon","Alfred Alegria","Mikko Dumdum","Chester Rabino","Kurt Santos","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Michael Sy","RayAnn Magpantay","Cris Aguda"],
+                7: ["Joshua Curtis","Kurt Santos","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                8: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Chester Rabino","Alexander Tan","Angelo So","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                9: ["Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                10: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","John Subong","Dana Dela Cruz","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                11: ["Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                12: ["Joshua Curtis","Mikko Dumdum","Chester Rabino","Kurt Santos","Angelo So","John Subong","Ruth Gabaldon","Patrick Uy","Roman Paco","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                13: ["Chester Rabino","Angelo So","John Subong","Dana Dela Cruz","Patrick Uy","Cris Aguda"],
+                14: ["Joshua Curtis","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","John Subong","Ruth Gabaldon","Patrick Uy","Justin Quinn","Cris Aguda"],
+                15: ["Carlo Santia","Alfred Alegria","Chester Rabino","Alexander Tan","John Subong","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                16: ["Joshua Curtis","Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Alexander Tan","Angelo So","John Subong","Dana Dela Cruz","Patrick Uy","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                17: ["Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Alexander Tan","Kurt Santos","Angelo So","John Subong","Dana Dela Cruz","Patrick Uy","Roman Paco","Justin Quinn","Melvin Del Cruz"],
+                18: ["Joshua Curtis","Nico Dabon","Carlo Santia","Chester Rabino","Alexander Tan","Angelo So","John Subong","Dana Dela Cruz","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                19: ["Nico Dabon","Chester Rabino","Kurt Santos","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Roman Paco","RayAnn Magpantay","Cris Aguda"],
+                20: ["Alfred Alegria","Mikko Dumdum","Chester Rabino","Ruth Gabaldon","RayAnn Magpantay"],
+                21: ["Joshua Curtis","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","John Subong","Patrick Uy","Justin Quinn","RayAnn Magpantay","Cris Aguda"],
+                22: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Chester Rabino","Alexander Tan","Angelo So","John Subong","Patrick Uy","Cris Aguda"],
+                23: ["Carlo Santia","RK Malabrigo","Alfred Alegria","Chester Rabino","Angelo So","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Justin Quinn","Michael Sy","Cris Aguda","Melvin Del Cruz"],
+                24: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","John Subong","Dana Dela Cruz","Patrick Uy","Justin Quinn","Michael Sy","RayAnn Magpantay","Melvin Del Cruz"],
+                25: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Angelo So","John Subong","Dana Dela Cruz","Patrick Uy","RayAnn Magpantay","Cris Aguda"],
+                26: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Angelo So","John Subong","Dana Dela Cruz","Patrick Uy","Roman Paco","Cris Aguda"],
+                27: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","Dana Dela Cruz","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                28: ["Joshua Curtis","Nico Dabon","Carlo Santia","Kurt Santos","Cris Aguda","Melvin Del Cruz"],
+                29: ["Nico Dabon","Carlo Santia","Cris Aguda"],
+                30: ["Kurt Santos","Dana Dela Cruz","Cris Aguda","Melvin Del Cruz"]
+            },
+            // MAY 2026
+            4: {
+                1: ["Nico Dabon","Alexander Tan","Ruth Gabaldon","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                2: ["Nico Dabon","Alexander Tan","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                3: ["Alexander Tan","Mikko Dumdum","Kurt Santos","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                4: ["Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Kurt Santos","Ruth Gabaldon","Dana Dela Cruz"],
+                5: ["RK Malabrigo","Mikko Dumdum"],
+                6: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alfred Alegria","Chester Rabino","Alexander Tan","Kurt Santos","Lance Gabaleno","Angelo So","Ruth Gabaldon","Patrick Uy","Roman Paco","Cris Aguda","Melvin Del Cruz"],
+                7: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Cris Aguda","Melvin Del Cruz"],
+                8: ["Joshua Curtis","Nico Dabon","Carlo Santia","Mikko Dumdum","Chester Rabino","Alexander Tan","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Cris Aguda"],
+                9: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Kurt Santos","Lance Gabaleno","Angelo So","Ruth Gabaldon","Patrick Uy","Roman Paco","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                10: ["Joshua Curtis","Nico Dabon","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Kurt Santos","Lance Gabaleno","Angelo So","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Roman Paco","Justin Quinn","Michael Sy","Cris Aguda"],
+                11: ["Mikko Dumdum","Chester Rabino","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy"],
+                12: ["Joshua Curtis","Nico Dabon","Kurt Santos","Lance Gabaleno","John Subong","Patrick Uy","Rayner Salvador","Cris Aguda","Melvin Del Cruz"],
+                13: ["Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Lance Gabaleno","John Subong","Ruth Gabaldon","Patrick Uy","Roman Paco","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                14: ["Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Angelo So","John Subong","Ruth Gabaldon","Melvin Del Cruz"],
+                15: ["Joshua Curtis","Carlo Santia","RK Malabrigo","Mikko Dumdum","Angelo So","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Justin Quinn"],
+                16: ["Joshua Curtis","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Roman Paco","Justin Quinn","RayAnn Magpantay"],
+                17: ["Joshua Curtis","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","John Subong","Ruth Gabaldon","Patrick Uy","Roman Paco","Michael Sy","RayAnn Magpantay"],
+                18: ["RK Malabrigo","Alfred Alegria","Kurt Santos","Ruth Gabaldon","Dana Dela Cruz","Michael Sy"],
+                19: ["Joshua Curtis","Alfred Alegria","Alexander Tan","Kurt Santos","Lance Gabaleno","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Cris Aguda"],
+                20: ["Chester Rabino","Melvin Del Cruz"],
+                21: ["Joshua Curtis","Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Kurt Santos","Angelo So","John Subong","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Roman Paco","Justin Quinn","Cris Aguda","Melvin Del Cruz"],
+                22: ["Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Kurt Santos","John Subong","Patrick Uy","Melvin Del Cruz"],
+                23: ["Joshua Curtis","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Kurt Santos","Roman Paco","Melvin Del Cruz"],
+                24: ["Joshua Curtis","Nico Dabon","Alfred Alegria","Mikko Dumdum","Kurt Santos","Lance Gabaleno","Angelo So","John Subong","Ruth Gabaldon","Patrick Uy","Roman Paco","Justin Quinn","Michael Sy","RayAnn Magpantay","Cris Aguda","Melvin Del Cruz"],
+                25: ["Nico Dabon","RK Malabrigo","Alfred Alegria","Kurt Santos","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Cris Aguda"],
+                26: ["Joshua Curtis","RK Malabrigo","Alexander Tan","Kurt Santos","Lance Gabaleno","Ruth Gabaldon","Dana Dela Cruz","Justin Quinn","Cris Aguda"],
+                27: ["Nico Dabon","Carlo Santia","Mikko Dumdum","Alexander Tan","Lance Gabaleno","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Cris Aguda"],
+                28: ["Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Lance Gabaleno","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Cris Aguda"],
+                29: ["Nico Dabon","Carlo Santia","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Lance Gabaleno","John Subong","Ruth Gabaldon","Patrick Uy","Roman Paco","Justin Quinn","Michael Sy","RayAnn Magpantay","Cris Aguda"],
+                30: ["Joshua Curtis","Nico Dabon","Carlo Santia","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Angelo So","Ruth Gabaldon","Patrick Uy","Roman Paco","Justin Quinn","Michael Sy","RayAnn Magpantay","Cris Aguda","Melvin Del Cruz"],
+                31: ["Joshua Curtis","RK Malabrigo","Alfred Alegria","Mikko Dumdum","Chester Rabino","Alexander Tan","Kurt Santos","Lance Gabaleno","Angelo So","Ruth Gabaldon","Dana Dela Cruz","Patrick Uy","Roman Paco","Justin Quinn","Cris Aguda","Melvin Del Cruz"]
+            }
+        };
+
+        // Apply WFO data to schedule
+        Object.keys(wfoData).forEach(monthIdx => {
+            const m = parseInt(monthIdx);
+            const monthName = new Date(2026, m, 1).toLocaleString('en', { month: 'long', year: 'numeric' });
+            const monthData = scheduleData[monthName];
+            if (!monthData) return;
+
+            Object.keys(wfoData[monthIdx]).forEach(dayStr => {
+                const day = parseInt(dayStr);
+                const rowIdx = day - 1;
+                if (rowIdx < 0 || rowIdx >= monthData.rows.length) return;
+
+                wfoData[monthIdx][dayStr].forEach(emp => {
+                    if (monthData.rows[rowIdx].shifts.hasOwnProperty(emp)) {
+                        monthData.rows[rowIdx].shifts[emp] = "WFO";
+                    }
+                });
+            });
+        });
+
+        // Load full June 2026 schedule (all shift values from file)
+        loadJune2026FullSchedule();
+    }
+
+    function loadJune2026FullSchedule() {
+        const monthName = "June 2026";
+        const md = scheduleData[monthName];
+        if (!md) return;
+
+        // June 2026 full data: day -> { employee: value }
+        const juneData = {
+            1: {"Joshua Curtis":"","Nico Dabon":"o","Carlo Santia":"o","RK Malabrigo":"08-16 BB + LC Scroller","Alfred Alegria":"o","Mikko Dumdum":"o","Chester Rabino":"o","Alexander Tan":"o","Roman Paco":"o","Alvin Ching":"16-00 Admin","Bryan Lustria":"WFO","Kurt Santos":"O","Lance Gabaleno":"O","Angelo So":"O","John Subong":"h","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"00-08 Basketball + LC Scroller","Patrick Uy":"o","Justin Quinn":"o","Michael Sy":"o","RayAnn Magpantay":"h","Rayner Salvador":"00-08 Float","Cris Aguda":"WFO","Itzak Dekire":"00-08 Scroller","Melvin Del Cruz":"WFO"},
+            2: {"Joshua Curtis":"WFO","Nico Dabon":"o","Carlo Santia":"08-16 TT/VB/IH","RK Malabrigo":"08-16 BB + LC Scroller","Alfred Alegria":"o","Mikko Dumdum":"o","Chester Rabino":"08-16 Tennis","Alexander Tan":"08-16 Admin","Roman Paco":"08-16 Float","Alvin Ching":"O","Bryan Lustria":"16-00 Admin","Kurt Santos":"s","Lance Gabaleno":"WFO","Angelo So":"16-00 BB - Monitoring","John Subong":"h","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"00-08 Basketball + LC Scroller","Patrick Uy":"o","Justin Quinn":"o","Michael Sy":"o","RayAnn Magpantay":"o","Rayner Salvador":"o","Cris Aguda":"00-08 TT/Tennis/VB/IH","Itzak Dekire":"00-08 Float","Melvin Del Cruz":"WFO"},
+            3: {"Joshua Curtis":"WFO","Nico Dabon":"08-16 BB + LC Scroller","Carlo Santia":"08-16 TT/VB/IH","RK Malabrigo":"08-16 Float","Alfred Alegria":"10-18 Tennis - Monitoring","Mikko Dumdum":"WFO","Chester Rabino":"08-16 Tennis","Alexander Tan":"WFO","Roman Paco":"WFO","Alvin Ching":"16-00 Tennis","Bryan Lustria":"16-00 Admin","Kurt Santos":"s","Lance Gabaleno":"16-00 Float","Angelo So":"16-00 BB + LC Scroller","John Subong":"h","Ruth Gabaldon":"O","Dana Dela Cruz":"00-08 Basketball + LC Scroller","Patrick Uy":"WFO","Justin Quinn":"o","Michael Sy":"00-08 TT/Tennis/VB/IH","RayAnn Magpantay":"o","Rayner Salvador":"00-08 Float","Cris Aguda":"o","Itzak Dekire":"00-08 Admin","Melvin Del Cruz":"o"},
+            4: {"Joshua Curtis":"","Nico Dabon":"08-16 Admin","Carlo Santia":"o","RK Malabrigo":"o","Alfred Alegria":"WFO","Mikko Dumdum":"WFO","Chester Rabino":"10-18 Tennis - Monitoring","Alexander Tan":"WFO","Roman Paco":"08-16 Float","Alvin Ching":"WFO","Bryan Lustria":"O","Kurt Santos":"16-00 TT","Lance Gabaleno":"s","Angelo So":"16-00 BB + LC Scroller","John Subong":"h","Ruth Gabaldon":"WFO","Dana Dela Cruz":"o","Patrick Uy":"WFO","Justin Quinn":"00-08 TT/Tennis/VB/IH","Michael Sy":"00-08 Scroller","RayAnn Magpantay":"h","Rayner Salvador":"00-08 Float","Cris Aguda":"WFO","Itzak Dekire":"o","Melvin Del Cruz":"WFO"},
+            5: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"08-16 Scroller","RK Malabrigo":"o","Alfred Alegria":"WFO","Mikko Dumdum":"WFO","Chester Rabino":"10-18 Tennis - Monitoring","Alexander Tan":"","Roman Paco":"08-16 Float","Alvin Ching":"16-00 TT/Tennis/VB/IH","Bryan Lustria":"O","Kurt Santos":"16-00 BB - Monitoring","Lance Gabaleno":"O","Angelo So":"16-00 BB + LC Scroller","John Subong":"h","Ruth Gabaldon":"WFO","Dana Dela Cruz":"o","Patrick Uy":"WFO","Justin Quinn":"00-08 Scroller","Michael Sy":"00-08 TT/Tennis/VB/IH","RayAnn Magpantay":"00-08 AI","Rayner Salvador":"00-08 Basketball + LC Scroller","Cris Aguda":"WFO","Itzak Dekire":"o","Melvin Del Cruz":""},
+            6: {"Joshua Curtis":"o","Nico Dabon":"","Carlo Santia":"08-16 Float","RK Malabrigo":"o","Alfred Alegria":"08-16 TT/VB/IH","Mikko Dumdum":"o","Chester Rabino":"08-16 Tennis","Alexander Tan":"08-16 BB + LC Scroller","Roman Paco":"o","Alvin Ching":"O","Bryan Lustria":"h","Kurt Santos":"16-00 BB + LC Scroller","Lance Gabaleno":"O","Angelo So":"WFO","John Subong":"h","Ruth Gabaldon":"16-00 TT/Tennis/VB/IH","Dana Dela Cruz":"00-08 Scroller","Patrick Uy":"WFO","Justin Quinn":"WFO","Michael Sy":"WFO","RayAnn Magpantay":"00-08 Basketball + LC Scroller","Rayner Salvador":"h","Cris Aguda":"WFO","Itzak Dekire":"o","Melvin Del Cruz":"o"},
+            7: {"Joshua Curtis":"o","Nico Dabon":"","Carlo Santia":"08-16 BB + LC Scroller","RK Malabrigo":"o","Alfred Alegria":"08-16 TT/Tennis/IH/VB","Mikko Dumdum":"o","Chester Rabino":"o","Alexander Tan":"o","Roman Paco":"o","Alvin Ching":"h","Bryan Lustria":"WFO","Kurt Santos":"WFO","Lance Gabaleno":"O","Angelo So":"O","John Subong":"O","Ruth Gabaldon":"O","Dana Dela Cruz":"o","Patrick Uy":"WFO","Justin Quinn":"WFO","Michael Sy":"WFO","RayAnn Magpantay":"00-08 Basketball + LC Scroller","Rayner Salvador":"o","Cris Aguda":"00-08 Admin","Itzak Dekire":"00-08 Scroller","Melvin Del Cruz":"o"},
+            8: {"Joshua Curtis":"WFO","Nico Dabon":"o","Carlo Santia":"o","RK Malabrigo":"08-16 TT/Tennis/IH/VB","Alfred Alegria":"o","Mikko Dumdum":"o","Chester Rabino":"08-16 Tennis","Alexander Tan":"o","Roman Paco":"o","Alvin Ching":"16-00 Admin","Bryan Lustria":"WFO","Kurt Santos":"O","Lance Gabaleno":"16-00 BB + LC Scroller","Angelo So":"O","John Subong":"O","Ruth Gabaldon":"16-00 TT/Tennis/VB/IH","Dana Dela Cruz":"00-08 Float","Patrick Uy":"o","Justin Quinn":"o","Michael Sy":"o","RayAnn Magpantay":"o","Rayner Salvador":"o","Cris Aguda":"o","Itzak Dekire":"","Melvin Del Cruz":"WFO"},
+            9: {"Joshua Curtis":"WFO","Nico Dabon":"o","Carlo Santia":"08-16 TT/Tennis/IH/VB","RK Malabrigo":"WFO","Alfred Alegria":"o","Mikko Dumdum":"WFO","Chester Rabino":"08-16 Tennis","Alexander Tan":"08-16 Float","Roman Paco":"WFO","Alvin Ching":"WFO","Bryan Lustria":"O","Kurt Santos":"O","Lance Gabaleno":"","Angelo So":"16-00 BB + LC Scroller","John Subong":"O","Ruth Gabaldon":"WFO","Dana Dela Cruz":"","Patrick Uy":"o","Justin Quinn":"WFO","Michael Sy":"o","RayAnn Magpantay":"","Rayner Salvador":"","Cris Aguda":"WFO","Itzak Dekire":"o","Melvin Del Cruz":"WFO"},
+            10: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"08-16 Tennis","RK Malabrigo":"WFO","Alfred Alegria":"10-18 Tennis","Mikko Dumdum":"WFO","Chester Rabino":"10-18 Tennis - Monitoring","Alexander Tan":"08-16 Scroller","Roman Paco":"WFO","Alvin Ching":"16-00 TT/Tennis/VB/IH","Bryan Lustria":"16-00 Admin","Kurt Santos":"16-00 BB + LC Scroller","Lance Gabaleno":"16-00 TT/Tennis/VB/IH","Angelo So":"16-00 Float","John Subong":"O","Ruth Gabaldon":"O","Dana Dela Cruz":"","Patrick Uy":"WFO","Justin Quinn":"WFO","Michael Sy":"h","RayAnn Magpantay":"","Rayner Salvador":"WFO","Cris Aguda":"WFO","Itzak Dekire":"","Melvin Del Cruz":"o"},
+            11: {"Joshua Curtis":"o","Nico Dabon":"","Carlo Santia":"08-16 TT/VB/IH","RK Malabrigo":"h","Alfred Alegria":"10-18 Tennis","Mikko Dumdum":"","Chester Rabino":"08-16 Tennis","Alexander Tan":"08-16 BB + LC Scroller","Roman Paco":"08-16 Float","Alvin Ching":"O","Bryan Lustria":"O","Kurt Santos":"16-00 BB + LC Scroller","Lance Gabaleno":"16-00 Tennis","Angelo So":"16-00 BB - Monitoring","John Subong":"O","Ruth Gabaldon":"O","Dana Dela Cruz":"o","Patrick Uy":"WFO","Justin Quinn":"WFO","Michael Sy":"h","RayAnn Magpantay":"h","Rayner Salvador":"","Cris Aguda":"WFO","Itzak Dekire":"00-08 AI","Melvin Del Cruz":""},
+            12: {"Joshua Curtis":"o","Nico Dabon":"h","Carlo Santia":"o","RK Malabrigo":"h","Alfred Alegria":"10-18 Tennis - Monitoring","Mikko Dumdum":"","Chester Rabino":"08-16 Tennis","Alexander Tan":"08-16 BB + LC Scroller","Roman Paco":"08-16 Float","Alvin Ching":"16-00 TT/Tennis/VB/IH","Bryan Lustria":"15-23 Scroller","Kurt Santos":"16-00 BB - Monitoring","Lance Gabaleno":"O","Angelo So":"WFO","John Subong":"O","Ruth Gabaldon":"16-00 TT/Tennis/VB/IH","Dana Dela Cruz":"","Patrick Uy":"WFO","Justin Quinn":"WFO","Michael Sy":"","RayAnn Magpantay":"","Rayner Salvador":"","Cris Aguda":"o","Itzak Dekire":"00-08 AI","Melvin Del Cruz":""},
+            13: {"Joshua Curtis":"o","Nico Dabon":"h","Carlo Santia":"WFO","RK Malabrigo":"h","Alfred Alegria":"08-16 TT/Tennis/IH/VB","Mikko Dumdum":"","Chester Rabino":"o","Alexander Tan":"08-16 BB + LC Scroller","Roman Paco":"o","Alvin Ching":"O","Bryan Lustria":"16-00 Float","Kurt Santos":"16-00 BB + LC Scroller","Lance Gabaleno":"O","Angelo So":"h","John Subong":"O","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"","Patrick Uy":"WFO","Justin Quinn":"o","Michael Sy":"WFO","RayAnn Magpantay":"o","Rayner Salvador":"o","Cris Aguda":"WFO","Itzak Dekire":"","Melvin Del Cruz":""},
+            14: {"Joshua Curtis":"o","Nico Dabon":"h","Carlo Santia":"h","RK Malabrigo":"h","Alfred Alegria":"08-16 TT/Tennis/IH/VB","Mikko Dumdum":"","Chester Rabino":"o","Alexander Tan":"o","Roman Paco":"o","Alvin Ching":"15-23 TT/VB/IH","Bryan Lustria":"16-00 Float","Kurt Santos":"O","Lance Gabaleno":"O","Angelo So":"h","John Subong":"WFO","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"","Patrick Uy":"WFO","Justin Quinn":"o","Michael Sy":"WFO","RayAnn Magpantay":"o","Rayner Salvador":"o","Cris Aguda":"","Itzak Dekire":"","Melvin Del Cruz":"o"},
+            15: {"Joshua Curtis":"WFO","Nico Dabon":"o","Carlo Santia":"o","RK Malabrigo":"h","Alfred Alegria":"08-16 TT/VB/IH","Mikko Dumdum":"o","Chester Rabino":"08-16 Tennis","Alexander Tan":"o","Roman Paco":"08-16 Float","Alvin Ching":"16-00 Admin","Bryan Lustria":"16-00 Float","Kurt Santos":"O","Lance Gabaleno":"16-00 Scroller","Angelo So":"O","John Subong":"WFO","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"","Patrick Uy":"o","Justin Quinn":"WFO","Michael Sy":"o","RayAnn Magpantay":"","Rayner Salvador":"WFO","Cris Aguda":"WFO","Itzak Dekire":"o","Melvin Del Cruz":""},
+            16: {"Joshua Curtis":"WFO","Nico Dabon":"o","Carlo Santia":"10-18 Tennis","RK Malabrigo":"h","Alfred Alegria":"08-16 TT/VB/IH","Mikko Dumdum":"o","Chester Rabino":"10-18 Tennis - Monitoring","Alexander Tan":"08-16 Admin","Roman Paco":"08-16 Float","Alvin Ching":"16-00 Tennis","Bryan Lustria":"16-00 AI","Kurt Santos":"16-00 TT","Lance Gabaleno":"WFO","Angelo So":"16-00 Scroller","John Subong":"WFO","Ruth Gabaldon":"O","Dana Dela Cruz":"","Patrick Uy":"o","Justin Quinn":"WFO","Michael Sy":"o","RayAnn Magpantay":"","Rayner Salvador":"","Cris Aguda":"","Itzak Dekire":"o","Melvin Del Cruz":""},
+            17: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"08-16 TT/VB/IH","RK Malabrigo":"08-16 Float","Alfred Alegria":"o","Mikko Dumdum":"","Chester Rabino":"08-16 Tennis","Alexander Tan":"WFO","Roman Paco":"o","Alvin Ching":"O","Bryan Lustria":"16-00 AI","Kurt Santos":"16-00 Float","Lance Gabaleno":"16-00 TT/VB/IH","Angelo So":"16-00 BB - Monitoring","John Subong":"WFO","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"o","Patrick Uy":"WFO","Justin Quinn":"WFO","Michael Sy":"","RayAnn Magpantay":"","Rayner Salvador":"","Cris Aguda":"WFO","Itzak Dekire":"","Melvin Del Cruz":"o"},
+            18: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"08-16 TT/VB/IH","RK Malabrigo":"08-16 Tennis","Alfred Alegria":"o","Mikko Dumdum":"","Chester Rabino":"08-16 AI","Alexander Tan":"08-16 BB + LC Scroller","Roman Paco":"o","Alvin Ching":"WFO","Bryan Lustria":"O","Kurt Santos":"16-00 Tennis","Lance Gabaleno":"WFO","Angelo So":"16-00 BB - Monitoring","John Subong":"WFO","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"o","Patrick Uy":"WFO","Justin Quinn":"WFO","Michael Sy":"","RayAnn Magpantay":"","Rayner Salvador":"","Cris Aguda":"o","Itzak Dekire":"","Melvin Del Cruz":""},
+            19: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"o","RK Malabrigo":"o","Alfred Alegria":"08-16 TT/VB/IH","Mikko Dumdum":"","Chester Rabino":"08-16 Tennis","Alexander Tan":"08-16 BB + LC Scroller","Roman Paco":"08-16 Scroller","Alvin Ching":"16-00 Float","Bryan Lustria":"O","Kurt Santos":"16-00 TT/VB/IH","Lance Gabaleno":"O","Angelo So":"WFO","John Subong":"O","Ruth Gabaldon":"O","Dana Dela Cruz":"h","Patrick Uy":"o","Justin Quinn":"WFO","Michael Sy":"","RayAnn Magpantay":"o","Rayner Salvador":"","Cris Aguda":"o","Itzak Dekire":"","Melvin Del Cruz":""},
+            20: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"WFO","RK Malabrigo":"WFO","Alfred Alegria":"08-16 TT/Tennis/IH/VB","Mikko Dumdum":"o","Chester Rabino":"08-16 Float","Alexander Tan":"08-16 BB + LC Scroller","Roman Paco":"h","Alvin Ching":"O","Bryan Lustria":"h","Kurt Santos":"16-00 BB + LC Scroller","Lance Gabaleno":"16-00 TT/VB/IH","Angelo So":"h","John Subong":"WFO","Ruth Gabaldon":"O","Dana Dela Cruz":"h","Patrick Uy":"o","Justin Quinn":"o","Michael Sy":"WFO","RayAnn Magpantay":"o","Rayner Salvador":"WFO","Cris Aguda":"h","Itzak Dekire":"","Melvin Del Cruz":""},
+            21: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"o","RK Malabrigo":"WFO","Alfred Alegria":"o","Mikko Dumdum":"o","Chester Rabino":"o","Alexander Tan":"h","Roman Paco":"h","Alvin Ching":"16-00 Scroller","Bryan Lustria":"16-00 Float","Kurt Santos":"O","Lance Gabaleno":"16-00 TT/Tennis/VB/IH","Angelo So":"O","John Subong":"WFO","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"h","Patrick Uy":"o","Justin Quinn":"o","Michael Sy":"WFO","RayAnn Magpantay":"o","Rayner Salvador":"o","Cris Aguda":"h","Itzak Dekire":"","Melvin Del Cruz":""},
+            22: {"Joshua Curtis":"WFO","Nico Dabon":"o","Carlo Santia":"08-16 BB + LC Scroller","RK Malabrigo":"o","Alfred Alegria":"WFO","Mikko Dumdum":"08-16 Float","Chester Rabino":"08-16 TT/VB/IH","Alexander Tan":"o","Roman Paco":"o","Alvin Ching":"16-00 Admin","Bryan Lustria":"16-00 Float","Kurt Santos":"O","Lance Gabaleno":"O","Angelo So":"O","John Subong":"WFO","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"","Patrick Uy":"WFO","Justin Quinn":"","Michael Sy":"o","RayAnn Magpantay":"WFO","Rayner Salvador":"o","Cris Aguda":"h","Itzak Dekire":"o","Melvin Del Cruz":""},
+            23: {"Joshua Curtis":"WFO","Nico Dabon":"o","Carlo Santia":"08-16 TT/VB/IH","RK Malabrigo":"o","Alfred Alegria":"WFO","Mikko Dumdum":"08-16 Admin","Chester Rabino":"o","Alexander Tan":"08-16 BB + LC Scroller","Roman Paco":"08-16 Float","Alvin Ching":"O","Bryan Lustria":"O","Kurt Santos":"16-00 Tennis","Lance Gabaleno":"WFO","Angelo So":"16-00 AI","John Subong":"WFO","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"","Patrick Uy":"WFO","Justin Quinn":"","Michael Sy":"o","RayAnn Magpantay":"WFO","Rayner Salvador":"WFO","Cris Aguda":"o","Itzak Dekire":"o","Melvin Del Cruz":""},
+            24: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"08-16 TT/VB/IH","RK Malabrigo":"WFO","Alfred Alegria":"WFO","Mikko Dumdum":"08-16 AI","Chester Rabino":"o","Alexander Tan":"08-16 Admin","Roman Paco":"WFO","Alvin Ching":"16-00 Admin","Bryan Lustria":"16-00 Tennis","Kurt Santos":"16-00 Scroller","Lance Gabaleno":"16-00 Tennis","Angelo So":"16-00 AI","John Subong":"WFO","Ruth Gabaldon":"O","Dana Dela Cruz":"o","Patrick Uy":"WFO","Justin Quinn":"","Michael Sy":"","RayAnn Magpantay":"WFO","Rayner Salvador":"","Cris Aguda":"o","Itzak Dekire":"","Melvin Del Cruz":"o"},
+            25: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"08-16 TT/VB/IH","RK Malabrigo":"WFO","Alfred Alegria":"o","Mikko Dumdum":"08-16 Tennis","Chester Rabino":"o","Alexander Tan":"WFO","Roman Paco":"08-16 Float","Alvin Ching":"WFO","Bryan Lustria":"O","Kurt Santos":"16-00 Float","Lance Gabaleno":"16-00 BB + LC Scroller","Angelo So":"16-00 BB + LC Scroller","John Subong":"WFO","Ruth Gabaldon":"WFO","Dana Dela Cruz":"o","Patrick Uy":"WFO","Justin Quinn":"","Michael Sy":"","RayAnn Magpantay":"WFO","Rayner Salvador":"","Cris Aguda":"o","Itzak Dekire":"","Melvin Del Cruz":""},
+            26: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"o","RK Malabrigo":"WFO","Alfred Alegria":"WFO","Mikko Dumdum":"08-16 Tennis","Chester Rabino":"o","Alexander Tan":"o","Roman Paco":"08-16 Float","Alvin Ching":"16-00 TT/Tennis/VB/IH","Bryan Lustria":"15-23 Float","Kurt Santos":"O","Lance Gabaleno":"h","Angelo So":"WFO","John Subong":"O","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"","Patrick Uy":"WFO","Justin Quinn":"o","Michael Sy":"","RayAnn Magpantay":"o","Rayner Salvador":"","Cris Aguda":"o","Itzak Dekire":"","Melvin Del Cruz":""},
+            27: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"o","RK Malabrigo":"WFO","Alfred Alegria":"08-16 BB + LC Scroller","Mikko Dumdum":"08-16 Float","Chester Rabino":"WFO","Alexander Tan":"o","Roman Paco":"h","Alvin Ching":"h","Bryan Lustria":"16-00 Admin","Kurt Santos":"h","Lance Gabaleno":"16-00 TT/Tennis/VB/IH","Angelo So":"O","John Subong":"WFO","Ruth Gabaldon":"16-00 TT/Tennis/VB/IH","Dana Dela Cruz":"","Patrick Uy":"h","Justin Quinn":"","Michael Sy":"WFO","RayAnn Magpantay":"WFO","Rayner Salvador":"WFO","Cris Aguda":"h","Itzak Dekire":"o","Melvin Del Cruz":""},
+            28: {"Joshua Curtis":"","Nico Dabon":"","Carlo Santia":"WFO","RK Malabrigo":"08-16 TT/Tennis/IH/VB","Alfred Alegria":"08-16 BB + LC Scroller","Mikko Dumdum":"h","Chester Rabino":"WFO","Alexander Tan":"h","Roman Paco":"h","Alvin Ching":"O","Bryan Lustria":"16-00 Admin","Kurt Santos":"h","Lance Gabaleno":"16-00 TT/Tennis/VB/IH","Angelo So":"O","John Subong":"WFO","Ruth Gabaldon":"O","Dana Dela Cruz":"o","Patrick Uy":"h","Justin Quinn":"","Michael Sy":"WFO","RayAnn Magpantay":"WFO","Rayner Salvador":"","Cris Aguda":"h","Itzak Dekire":"","Melvin Del Cruz":"o"},
+            29: {"Joshua Curtis":"WFO","Nico Dabon":"o","Carlo Santia":"08-16 Float","RK Malabrigo":"o","Alfred Alegria":"08-16 TT/Tennis/IH/VB","Mikko Dumdum":"h","Chester Rabino":"WFO","Alexander Tan":"o","Roman Paco":"h","Alvin Ching":"O","Bryan Lustria":"16-00 Admin","Kurt Santos":"O","Lance Gabaleno":"16-00 TT/Tennis/VB/IH","Angelo So":"O","John Subong":"WFO","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"","Patrick Uy":"WFO","Justin Quinn":"","Michael Sy":"o","RayAnn Magpantay":"WFO","Rayner Salvador":"o","Cris Aguda":"h","Itzak Dekire":"","Melvin Del Cruz":"o"},
+            30: {"Joshua Curtis":"WFO","Nico Dabon":"h","Carlo Santia":"WFO","RK Malabrigo":"o","Alfred Alegria":"o","Mikko Dumdum":"08-16 Float","Chester Rabino":"WFO","Alexander Tan":"08-16 BB + LC Scroller","Roman Paco":"h","Alvin Ching":"16-00 Tennis","Bryan Lustria":"O","Kurt Santos":"16-00 BB - Monitoring","Lance Gabaleno":"WFO","Angelo So":"16-00 BB + LC Scroller","John Subong":"WFO","Ruth Gabaldon":"16-00 Tennis","Dana Dela Cruz":"","Patrick Uy":"WFO","Justin Quinn":"","Michael Sy":"","RayAnn Magpantay":"WFO","Rayner Salvador":"o","Cris Aguda":"h","Itzak Dekire":"","Melvin Del Cruz":""}
+        };
+
+        Object.keys(juneData).forEach(dayStr => {
+            const day = parseInt(dayStr);
+            const rowIdx = day - 1;
+            if (rowIdx < 0 || rowIdx >= md.rows.length) return;
+            Object.keys(juneData[dayStr]).forEach(emp => {
+                if (md.rows[rowIdx].shifts.hasOwnProperty(emp)) {
+                    md.rows[rowIdx].shifts[emp] = juneData[dayStr][emp];
+                }
+            });
+        });
+    }
+
+    function saveData() {
+        localStorage.setItem('wfo_schedule_data', JSON.stringify(scheduleData));
+        // Sync WFO submissions to cloud
+        syncToCloud();
+    }
+
+    // ============================================================
+    // CLOUD SYNC (JsonBin.io) - keeps all employees in sync
+    // ============================================================
+    // To set up: 
+    // 1. Go to https://jsonbin.io and create a free account
+    // 2. Get your Master Key from API Keys section
+    // 3. Replace the values below
+    const JSONBIN_API_KEY = '$2a$10$REPLACE_WITH_YOUR_API_KEY'; // Your JsonBin Master Key
+    const JSONBIN_BIN_ID = 'REPLACE_WITH_BIN_ID'; // Will be created on first save
+    const CLOUD_ENABLED = JSONBIN_API_KEY !== '$2a$10$REPLACE_WITH_YOUR_API_KEY';
+
+    // Extract only WFO changes (submissions made by users) to sync
+    function getWFOSubmissions() {
+        const submissions = {};
+        Object.keys(scheduleData).forEach(monthKey => {
+            const data = scheduleData[monthKey];
+            if (!data || !data.rows) return;
+            data.rows.forEach(row => {
+                const dt = new Date(row.date);
+                Object.keys(row.shifts).forEach(emp => {
+                    const val = (row.shifts[emp] || '').toUpperCase().trim();
+                    if (val === 'WFO' || val === 'IN') {
+                        if (!submissions[monthKey]) submissions[monthKey] = {};
+                        const dayKey = dt.getDate();
+                        if (!submissions[monthKey][dayKey]) submissions[monthKey][dayKey] = [];
+                        if (!submissions[monthKey][dayKey].includes(emp)) {
+                            submissions[monthKey][dayKey].push(emp);
+                        }
+                    }
+                });
+            });
+        });
+        return submissions;
+    }
+
+    async function syncToCloud() {
+        if (!CLOUD_ENABLED) return;
+        try {
+            const data = getWFOSubmissions();
+            await fetch('https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': JSONBIN_API_KEY
+                },
+                body: JSON.stringify(data)
+            });
+        } catch(e) {
+            console.log('Cloud sync failed:', e);
+        }
+    }
+
+    async function loadFromCloud() {
+        if (!CLOUD_ENABLED) return;
+        try {
+            const resp = await fetch('https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID + '/latest', {
+                headers: { 'X-Master-Key': JSONBIN_API_KEY }
+            });
+            if (!resp.ok) return;
+            const result = await resp.json();
+            const cloudData = result.record;
+            if (!cloudData) return;
+
+            // Apply cloud WFO data on top of hardcoded schedule
+            Object.keys(cloudData).forEach(monthKey => {
+                const monthData = scheduleData[monthKey];
+                if (!monthData) return;
+                Object.keys(cloudData[monthKey]).forEach(dayStr => {
+                    const day = parseInt(dayStr);
+                    const rowIdx = day - 1;
+                    if (rowIdx < 0 || rowIdx >= monthData.rows.length) return;
+                    cloudData[monthKey][dayStr].forEach(emp => {
+                        if (monthData.rows[rowIdx].shifts.hasOwnProperty(emp)) {
+                            const current = (monthData.rows[rowIdx].shifts[emp] || '').toUpperCase().trim();
+                            // Only set WFO if cell is empty or 'O'
+                            if (current === '' || current === 'O') {
+                                monthData.rows[rowIdx].shifts[emp] = 'WFO';
+                            }
+                        }
+                    });
+                });
+            });
+
+            renderMonth();
+            console.log('Cloud data loaded successfully');
+        } catch(e) {
+            console.log('Cloud load failed:', e);
+        }
+    }
+
+    // Save data as JSON file (shareable between browsers/users)
+    function saveDataFile() {
+        const dataToSave = JSON.stringify(scheduleData, null, 2);
+        const blob = new Blob([dataToSave], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'WFO_Data_' + new Date().toISOString().slice(0, 10) + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // Load data from JSON file
+    function loadDataFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const parsed = JSON.parse(e.target.result);
+                Object.keys(parsed).forEach(key => {
+                    scheduleData[key] = parsed[key];
+                    if (scheduleData[key].rows) {
+                        scheduleData[key].rows.forEach(row => {
+                            row.date = new Date(row.date);
+                            if (!row.shifts) row.shifts = {};
+                            if (!row.styles) row.styles = {};
+                        });
+                    }
+                });
+                saveData();
+                populateMonthSelector();
+                renderMonth();
+                alert('Data loaded successfully!');
+            } catch(err) {
+                alert('Error loading file: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    }
+
+    // ============================================================
+    // TAB SWITCHING
+    // ============================================================
+    function switchTab(tab) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+        document.getElementById('panel-' + tab).classList.add('active');
+        if (tab === 'schedule') document.getElementById('tabSchedule').classList.add('active');
+        else if (tab === 'summary') document.getElementById('tabSummary').classList.add('active');
+        else if (tab === 'upload') document.getElementById('tabImport').classList.add('active');
+        if (tab === 'summary') renderSummary();
+    }
+
+    // ============================================================
+    // SCHEDULE RENDERING
+    // ============================================================
+    function populateMonthSelector() {
+        const sel = document.getElementById('monthSelect');
+        sel.innerHTML = '';
+        // Sort months chronologically
+        const monthKeys = Object.keys(scheduleData).sort((a, b) => {
+            return new Date(a) - new Date(b);
+        });
+        monthKeys.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m; opt.textContent = m;
+            if (m === currentMonth) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    function highlightRow(row) {
+        const wasHighlighted = row.classList.contains('row-highlight');
+        // Remove highlight from all rows
+        document.querySelectorAll('#scheduleTable tbody tr').forEach(r => r.classList.remove('row-highlight'));
+        // Toggle on clicked row
+        if (!wasHighlighted) row.classList.add('row-highlight');
+    }
+
+    function renderMonth() {
+        currentMonth = document.getElementById('monthSelect').value;
+        const data = scheduleData[currentMonth];
+        if (!data) return;
+
+        const table = document.getElementById('scheduleTable');
+        let html = '<thead><tr><th>Date</th><th>Day</th>';
+        const visibleEmployees = data.employees.filter(emp => emp !== 'Mark Sy');
+        visibleEmployees.forEach(emp => { html += `<th>${emp}</th>`; });
+        html += '</tr></thead><tbody>';
+
+        let totals = {};
+        visibleEmployees.forEach(emp => { totals[emp] = 0; });
+
+        data.rows.forEach(row => {
+            const dt = new Date(row.date);
+            const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+            const dateStr = dt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            html += `<tr class="${isWeekend ? 'weekend' : ''}" onclick="highlightRow(this)">`;
+            html += `<td class="date-col">${dateStr}</td>`;
+            html += `<td class="day-col">${row.day}</td>`;
+            visibleEmployees.forEach(emp => {
+                const val = (row.shifts[emp] || '').trim();
+                const upper = val.toUpperCase();
+                let cls = '';
+                if (upper === 'WFO' || upper === 'IN') { cls = 'wfo'; totals[emp]++; }
+                else if (upper === 'O' || upper === 'H' || val === '') { cls = 'off'; }
+                else if (upper.includes('16-00') || upper.includes('15-23')) { cls = 'shift-afternoon'; }
+                else if (upper.includes('00-08') || upper.includes('23-07') || upper.includes('22-06') || upper.includes('21-05') || upper.includes('20-04')) { cls = 'shift-night'; }
+                else if (val.length > 0) { cls = 'shift-morning'; }
+                html += `<td class="${cls}">${val || ''}</td>`;
+            });
+            html += '</tr>';
+        });
+
+        // Total row
+        html += '<tr class="total-row"><td colspan="2">TOTAL WFO</td>';
+        visibleEmployees.forEach(emp => { html += `<td>${totals[emp]}</td>`; });
+        html += '</tr>';
+
+        html += '</tbody>';
+        table.innerHTML = html;
+    }
+
+    // ============================================================
+    // SUMMARY
+    // ============================================================
+    function renderSummary() {
+        const now = new Date();
+        const currentYear = 2026;
+
+        // Find all months that have any data (not just up to current month)
+        let maxMonth = now.getFullYear() === 2026 ? now.getMonth() : 5; // default to current
+        Object.keys(scheduleData).forEach(monthKey => {
+            const data = scheduleData[monthKey];
+            if (!data || !data.rows) return;
+            data.rows.forEach(row => {
+                const dt = new Date(row.date);
+                if (dt.getFullYear() === currentYear) {
+                    const hasWFO = Object.values(row.shifts || {}).some(v => {
+                        const u = (v || '').toUpperCase().trim();
+                        return u === 'WFO' || u === 'IN';
+                    });
+                    if (hasWFO && dt.getMonth() > maxMonth) maxMonth = dt.getMonth();
+                }
+            });
+        });
+        const monthsElapsed = maxMonth + 1;
+
+        // Month labels Jan to latest month with data
+        const monthLabels = [];
+        for (let m = 0; m < monthsElapsed; m++) {
+            monthLabels.push(new Date(2026, m, 1).toLocaleString('en', { month: 'short' }));
+        }
+
+        // Tally WFO per employee per month
+        let empMonthly = {}; // { name: { "Jan": 3, "Feb": 5, ... , ytd: 0, thisMonth: 0 } }
+
+        Object.keys(scheduleData).forEach(monthKey => {
+            const data = scheduleData[monthKey];
+            data.rows.forEach(row => {
+                const dt = new Date(row.date);
+                if (dt.getFullYear() !== currentYear) return;
+                if (dt.getMonth() >= monthsElapsed) return;
+                data.employees.forEach(emp => {
+                    if (emp === 'Mark Sy') return; // Exclude Mark Sy from summary
+                    if (!empMonthly[emp]) {
+                        empMonthly[emp] = { ytd: 0, thisMonth: 0 };
+                        monthLabels.forEach(ml => { empMonthly[emp][ml] = 0; });
+                    }
+                    const val = (row.shifts[emp] || '').toUpperCase().trim();
+                    if (val === 'WFO' || val === 'IN') {
+                        const mLabel = dt.toLocaleString('en', { month: 'short' });
+                        empMonthly[emp][mLabel] = (empMonthly[emp][mLabel] || 0) + 1;
+                        empMonthly[emp].ytd++;
+                        if (dt.getMonth() === now.getMonth() && now.getFullYear() === 2026) {
+                            empMonthly[emp].thisMonth++;
+                        }
+                    }
+                });
+            });
+        });
+
+        // Stat cards
+        const totalEmployees = Object.keys(empMonthly).length;
+        const totalWFO = Object.values(empMonthly).reduce((s, e) => s + e.ytd, 0);
+        const totalThisMonth = Object.values(empMonthly).reduce((s, e) => s + e.thisMonth, 0);
+
+        document.getElementById('statCards').innerHTML = `
+            <div class="stat-card"><div class="value">${totalEmployees}</div><div class="label">Employees</div></div>
+            <div class="stat-card"><div class="value">${totalThisMonth}</div><div class="label">WFO This Month</div></div>
+            <div class="stat-card"><div class="value">${totalWFO}</div><div class="label">Total WFO (YTD)</div></div>
+            <div class="stat-card"><div class="value">${monthsElapsed}</div><div class="label">Months Elapsed (2026)</div></div>
+        `;
+
+        // Monthly breakdown table - employee order from current month
+        const currentData = scheduleData[currentMonth];
+        const empOrder = currentData ? currentData.employees : Object.keys(empMonthly);
+
+        let html = '<thead><tr><th style="text-align:left">Employee</th>';
+        monthLabels.forEach(ml => { html += `<th>${ml}</th>`; });
+        html += '<th style="background:#1b5e20;">TOTAL</th><th style="background:#0d47a1;">AVG/MTH</th></tr></thead><tbody>';
+
+        empOrder.forEach(emp => {
+            if (emp === 'Mark Sy') return; // Skip Mark Sy
+            const stats = empMonthly[emp] || { ytd: 0 };
+            const avg = monthsElapsed > 0 ? (stats.ytd / monthsElapsed).toFixed(1) : '0.0';
+            html += `<tr onclick="highlightSummaryRow(this)" style="cursor:pointer;"><td style="text-align:left; font-weight:600;">${emp}</td>`;
+            monthLabels.forEach(ml => {
+                const count = stats[ml] || 0;
+                const cls = count > 0 ? 'wfo' : 'off';
+                html += `<td class="${cls}">${count || '-'}</td>`;
+            });
+            html += `<td style="font-weight:bold; color:#a5d6a7;">${stats.ytd}</td>`;
+            html += `<td style="font-weight:bold; color:#90caf9;">${avg}</td>`;
+            html += '</tr>';
+        });
+        html += '</tbody>';
+        document.getElementById('summaryTable').innerHTML = html;
+    }
+
+    function highlightSummaryRow(row) {
+        const wasHighlighted = row.classList.contains('row-highlight');
+        document.querySelectorAll('#summaryTable tbody tr').forEach(r => r.classList.remove('row-highlight'));
+        if (!wasHighlighted) row.classList.add('row-highlight');
+    }
+
+    // ============================================================
+    // WFO REQUEST MODAL
+    // ============================================================
+    function showRequestModal() {
+        const data = scheduleData[currentMonth];
+        if (!data) { alert('No schedule loaded.'); return; }
+
+        // Populate month selector in modal
+        const monthSel = document.getElementById('modalMonthSelect');
+        monthSel.innerHTML = '';
+        const monthKeys = Object.keys(scheduleData).sort((a, b) => new Date(a) - new Date(b));
+        monthKeys.forEach(m => {
+            monthSel.innerHTML += `<option value="${m}" ${m === currentMonth ? 'selected' : ''}>${m}</option>`;
+        });
+
+        // Populate employee dropdown
+        const sel = document.getElementById('empSelect');
+        sel.innerHTML = '<option value="">-- Choose Employee --</option>';
+        data.employees.forEach(emp => {
+            sel.innerHTML += `<option value="${emp}">${emp}</option>`;
+        });
+
+        // Populate date list for current month
+        loadModalDates(currentMonth);
+
+        document.getElementById('requestModal').classList.add('show');
+    }
+
+    function loadModalDates(monthKey) {
+        const data = scheduleData[monthKey];
+        if (!data) return;
+
+        const list = document.getElementById('dateList');
+        list.innerHTML = '';
+        data.rows.forEach((row, idx) => {
+            const dt = new Date(row.date);
+            const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+            const dateStr = dt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const div = document.createElement('div');
+            div.className = 'date-item' + (isWeekend ? ' weekend' : '');
+            div.innerHTML = `<input type="checkbox" id="date_${idx}" value="${idx}"><label for="date_${idx}">${dateStr}</label><span class="day-name">${row.day}${isWeekend ? ' (Weekend)' : ''}</span>`;
+            list.appendChild(div);
+        });
+
+        // Also update employee list if employees differ per month
+        const sel = document.getElementById('empSelect');
+        const currentEmp = sel.value;
+        sel.innerHTML = '<option value="">-- Choose Employee --</option>';
+        data.employees.forEach(emp => {
+            sel.innerHTML += `<option value="${emp}" ${emp === currentEmp ? 'selected' : ''}>${emp}</option>`;
+        });
+    }
+
+    function onModalMonthChange() {
+        const monthKey = document.getElementById('modalMonthSelect').value;
+        loadModalDates(monthKey);
+    }
+
+    function closeModal() { document.getElementById('requestModal').classList.remove('show'); }
+
+    // ============================================================
+    // REMOVE WFO MODAL
+    // ============================================================
+    function showRemoveModal() {
+        const monthSel = document.getElementById('removeMonthSelect');
+        monthSel.innerHTML = '';
+        const monthKeys = Object.keys(scheduleData).sort((a, b) => new Date(a) - new Date(b));
+        monthKeys.forEach(m => {
+            monthSel.innerHTML += `<option value="${m}" ${m === currentMonth ? 'selected' : ''}>${m}</option>`;
+        });
+
+        const data = scheduleData[currentMonth];
+        const sel = document.getElementById('removeEmpSelect');
+        sel.innerHTML = '<option value="">-- Choose Employee --</option>';
+        if (data) {
+            data.employees.forEach(emp => { sel.innerHTML += `<option value="${emp}">${emp}</option>`; });
+        }
+
+        document.getElementById('removeDateList').innerHTML = '<p style="color:#aaa; font-size:0.85rem;">Select an employee to see their WFO dates</p>';
+        document.getElementById('removeModal').classList.add('show');
+    }
+
+    function closeRemoveModal() { document.getElementById('removeModal').classList.remove('show'); }
+
+    function onRemoveMonthChange() {
+        const monthKey = document.getElementById('removeMonthSelect').value;
+        const data = scheduleData[monthKey];
+        const sel = document.getElementById('removeEmpSelect');
+        sel.innerHTML = '<option value="">-- Choose Employee --</option>';
+        if (data) {
+            data.employees.forEach(emp => { sel.innerHTML += `<option value="${emp}">${emp}</option>`; });
+        }
+        document.getElementById('removeDateList').innerHTML = '<p style="color:#aaa; font-size:0.85rem;">Select an employee to see their WFO dates</p>';
+    }
+
+    function loadRemoveDates() {
+        const monthKey = document.getElementById('removeMonthSelect').value;
+        const emp = document.getElementById('removeEmpSelect').value;
+        const list = document.getElementById('removeDateList');
+        list.innerHTML = '';
+
+        if (!emp) { list.innerHTML = '<p style="color:#aaa;">Select an employee</p>'; return; }
+
+        const data = scheduleData[monthKey];
+        if (!data) return;
+
+        let hasWFO = false;
+        data.rows.forEach((row, idx) => {
+            const val = (row.shifts[emp] || '').toUpperCase().trim();
+            if (val === 'WFO' || val === 'IN') {
+                hasWFO = true;
+                const dt = new Date(row.date);
+                const dateStr = dt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const div = document.createElement('div');
+                div.className = 'date-item';
+                div.innerHTML = `<input type="checkbox" id="rm_date_${idx}" value="${idx}"><label for="rm_date_${idx}">${dateStr}</label><span class="day-name">${row.day}</span>`;
+                list.appendChild(div);
+            }
+        });
+
+        if (!hasWFO) {
+            list.innerHTML = '<p style="color:#aaa;">No WFO dates found for this employee in ' + monthKey + '</p>';
+        }
+    }
+
+    function selectAllRemoveDates() {
+        document.querySelectorAll('#removeDateList input[type=checkbox]').forEach(cb => cb.checked = true);
+    }
+
+    function clearRemoveDates() {
+        document.querySelectorAll('#removeDateList input[type=checkbox]').forEach(cb => cb.checked = false);
+    }
+
+    function removeWFO() {
+        const monthKey = document.getElementById('removeMonthSelect').value;
+        const emp = document.getElementById('removeEmpSelect').value;
+        if (!emp) { alert('Please select an employee.'); return; }
+
+        const data = scheduleData[monthKey];
+        if (!data) return;
+
+        const toRemove = [];
+        data.rows.forEach((row, idx) => {
+            const cb = document.getElementById('rm_date_' + idx);
+            if (cb && cb.checked) toRemove.push(idx);
+        });
+
+        if (toRemove.length === 0) { alert('Please select dates to remove.'); return; }
+
+        const dates = toRemove.map(i => new Date(data.rows[i].date).toLocaleDateString('en-GB'));
+        if (!confirm(`Remove WFO for ${emp} on:\n\n${dates.join('\n')}\n\nConfirm?`)) return;
+
+        toRemove.forEach(idx => {
+            data.rows[idx].shifts[emp] = '';
+        });
+
+        saveData();
+        renderMonth();
+        closeRemoveModal();
+        alert(`${toRemove.length} WFO date(s) removed for ${emp}.`);
+    }
+
+    function selectAllWeekdays() {
+        const selectedMonth = document.getElementById('modalMonthSelect').value;
+        const data = scheduleData[selectedMonth];
+        if (!data) return;
+        data.rows.forEach((row, idx) => {
+            const dt = new Date(row.date);
+            const cb = document.getElementById('date_' + idx);
+            if (cb) cb.checked = (dt.getDay() !== 0 && dt.getDay() !== 6);
+        });
+    }
+
+    function clearSelection() {
+        document.querySelectorAll('#dateList input[type=checkbox]').forEach(cb => cb.checked = false);
+    }
+
+    function submitWFO() {
+        const emp = document.getElementById('empSelect').value;
+        if (!emp) { alert('Please select your name.'); return; }
+
+        const selectedMonth = document.getElementById('modalMonthSelect').value;
+        const data = scheduleData[selectedMonth];
+        if (!data) { alert('Invalid month.'); return; }
+
+        const selected = [];
+        data.rows.forEach((row, idx) => {
+            const cb = document.getElementById('date_' + idx);
+            if (cb && cb.checked) selected.push(idx);
+        });
+
+        if (selected.length === 0) { alert('Please select at least one date.'); return; }
+
+        // Confirm
+        const dates = selected.map(i => new Date(data.rows[i].date).toLocaleDateString('en-GB'));
+        if (!confirm(`Submit WFO for ${emp} (${selectedMonth})?\n\n${selected.length} date(s):\n${dates.join('\n')}`)) return;
+
+        // Write WFO
+        let count = 0;
+        selected.forEach(idx => {
+            const current = (data.rows[idx].shifts[emp] || '').toUpperCase().trim();
+            if (current === '' || current === 'O') {
+                data.rows[idx].shifts[emp] = 'WFO';
+                count++;
+            }
+        });
+
+        saveData();
+        renderMonth();
+        closeModal();
+
+        // Show tally: total WFO for the month and average
+        const monthsElapsed = new Date().getFullYear() === 2026 ? new Date().getMonth() + 1 : 6;
+        let monthTotal = 0;
+        let ytdTotal = 0;
+        Object.keys(scheduleData).forEach(mk => {
+            const md = scheduleData[mk];
+            if (!md || !md.rows) return;
+            md.rows.forEach(row => {
+                const dt = new Date(row.date);
+                if (dt.getFullYear() !== 2026) return;
+                const val = (row.shifts[emp] || '').toUpperCase().trim();
+                if (val === 'WFO' || val === 'IN') {
+                    ytdTotal++;
+                    if (mk === selectedMonth) monthTotal++;
+                }
+            });
+        });
+        const avg = monthsElapsed > 0 ? (ytdTotal / monthsElapsed).toFixed(1) : '0.0';
+
+        alert(`${count} WFO date(s) added for ${emp} in ${selectedMonth}!\n\n` +
+              `📊 ${emp} WFO Tally:\n` +
+              `• This month (${selectedMonth}): ${monthTotal}\n` +
+              `• Year to date total: ${ytdTotal}\n` +
+              `• Average per month: ${avg}\n` +
+              `• Target: 9 per month`);
+
+        // Update summary
+        switchTab('summary');
+    }
+
+    // ============================================================
+    // EXCEL IMPORT - stores original workbook for exact re-export
+    // ============================================================
+    let originalWorkbook = null; // Store the imported workbook to preserve formatting
+    let originalFileData = null; // Store raw file bytes for exact re-export
+
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            originalFileData = data; // Save for re-export
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellStyles: true });
+            originalWorkbook = workbook; // Save workbook with all styles
+
+            let importedMonths = 0;
+
+            workbook.SheetNames.forEach(sheetName => {
+                const sheet = workbook.Sheets[sheetName];
+                const json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, dateNF: 'dd/mm/yyyy' });
+
+                if (json.length < 3) return;
+
+                let headerRowIdx = -1;
+                let empStartCol = -1;
+                for (let r = 0; r < Math.min(5, json.length); r++) {
+                    const row = json[r];
+                    if (!row) continue;
+                    let textCount = 0;
+                    for (let c = 2; c < row.length; c++) {
+                        if (row[c] && typeof row[c] === 'string' && row[c].trim().length > 2 && !row[c].match(/^\d/)) textCount++;
+                    }
+                    if (textCount >= 5) {
+                        headerRowIdx = r;
+                        for (let c = 2; c < row.length; c++) {
+                            if (row[c] && typeof row[c] === 'string' && row[c].trim().length > 2 && !row[c].match(/^\d/)) { empStartCol = c; break; }
+                        }
+                        break;
+                    }
+                }
+                if (headerRowIdx === -1) return;
+
+                const headerRow = json[headerRowIdx];
+                const employees = [];
+                for (let c = empStartCol; c < headerRow.length; c++) {
+                    const name = (headerRow[c] || '').toString().trim();
+                    if (name && name.length > 1 && !name.match(/^\d/) && name !== 'TOTAL WFO') employees.push(name);
+                }
+                if (employees.length < 3) return;
+
+                const rows = [];
+                for (let r = headerRowIdx + 1; r < json.length; r++) {
+                    const row = json[r];
+                    if (!row) continue;
+
+                    let dateVal = null, dayVal = '';
+                    for (let c = 0; c < Math.min(3, row.length); c++) {
+                        if (row[c] && isDateLike(row[c])) { dateVal = parseFlexDate(row[c]); break; }
+                    }
+                    for (let c = 0; c < Math.min(4, row.length); c++) {
+                        const cell = (row[c] || '').toString().trim();
+                        if (['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].includes(cell)) { dayVal = cell; break; }
+                    }
+                    if (!dateVal) continue;
+
+                    const shifts = {};
+                    const cellStyles = {};
+                    employees.forEach((emp, idx) => {
+                        const colIdx = empStartCol + idx;
+                        const cellText = (row[colIdx] || '').toString().trim();
+
+                        // Store ALL cell values to preserve full schedule
+                        shifts[emp] = cellText;
+
+                        // Store original cell style/color for exact export
+                        const cellRef = XLSX.utils.encode_cell({ r: r, c: colIdx });
+                        const cellObj = sheet[cellRef];
+                        if (cellObj && cellObj.s) {
+                            cellStyles[emp] = JSON.parse(JSON.stringify(cellObj.s));
+                        }
+                    });
+
+                    rows.push({ date: dateVal, day: dayVal || dateVal.toLocaleString('en', { weekday: 'long' }), shifts: shifts, styles: cellStyles });
+                }
+
+                if (rows.length > 0) {
+                    const monthKey = rows[0].date.toLocaleString('en', { month: 'long', year: 'numeric' });
+                    scheduleData[monthKey] = { employees: employees, rows: rows };
+                    importedMonths++;
+                }
+            });
+
+            if (importedMonths > 0) {
+                saveData();
+                populateMonthSelector();
+                currentMonth = document.getElementById('monthSelect').value;
+                renderMonth();
+                document.getElementById('uploadStatus').textContent = `Imported ${importedMonths} month(s) - only blue WFO cells!`;
+                document.getElementById('uploadStatus').style.color = '#66bb6a';
+            } else {
+                document.getElementById('uploadStatus').textContent = 'No valid data found. Check file format.';
+                document.getElementById('uploadStatus').style.color = '#ef5350';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // Detect blue background color
+    function checkBlue(colorObj) {
+        if (!colorObj) return false;
+        const rgb = colorObj.rgb || '';
+        if (rgb) {
+            const clean = rgb.replace('#','').toUpperCase();
+            // Known blue hex values from Excel
+            const blues = ['4472C4','5B9BD5','2E75B6','1F4E79','0070C0','00B0F0','4FC3F7','2196F3','1976D2','0D47A1','42A5F5','64B5F6','5C9AD2','4A86C8','6699CC','336699','003399','0066CC','3366FF','0000FF','3399FF','66CCFF','99CCFF','BDD7EE','DDEBF7','9BC2E6','8DB4E2','538DD5','4F81BD','C5D9F1'];
+            if (blues.includes(clean)) return true;
+            if (clean.length === 6) {
+                const r = parseInt(clean.substring(0,2),16);
+                const g = parseInt(clean.substring(2,4),16);
+                const b = parseInt(clean.substring(4,6),16);
+                if (b > 140 && b > r * 1.3 && b > g) return true;
+                if (b > 100 && r < 130 && b > r) return true;
+            }
+        }
+        if (colorObj.theme === 4 || colorObj.theme === 5 || colorObj.theme === 8) return true;
+        if (colorObj.indexed && [12,39,40,41,48,49,53,54,55,56].includes(colorObj.indexed)) return true;
+        return false;
+    }
+
+    function isDateLike(val) {
+        if (val instanceof Date) return true;
+        const s = val.toString().trim();
+        return s.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/) || s.match(/^\d{4}-\d{2}-\d{2}/);
+    }
+
+    function parseFlexDate(val) {
+        if (val instanceof Date) return val;
+        const s = val.toString().trim();
+        // Try dd/mm/yy or dd/mm/yyyy or m/d/yy
+        const parts = s.split('/');
+        if (parts.length === 3) {
+            let day = parseInt(parts[0]);
+            let month = parseInt(parts[1]);
+            let year = parseInt(parts[2]);
+            if (year < 100) year += 2000;
+            // If day > 12, it's dd/mm/yyyy
+            if (day > 12) return new Date(year, month - 1, day);
+            // If month > 12, it's mm/dd/yyyy
+            if (month > 12) return new Date(year, day - 1, month);
+            // Default to dd/mm/yyyy (UK format matching your file)
+            return new Date(year, month - 1, day);
+        }
+        return new Date(s);
+    }
+
+    // ============================================================
+    // EXPORT TO EXCEL
+    // ============================================================
+    function exportToExcel() {
+        if (!originalFileData) {
+            alert('Please import your schedule file first (Import Data tab), then export.');
+            return;
+        }
+
+        // Download the ORIGINAL file unchanged as a base
+        // Then provide a summary of WFO changes to apply manually
+        // This preserves 100% of original formatting
+
+        // Check if any WFO changes were made
+        let changes = [];
+        const wb = XLSX.read(originalFileData, { type: 'array', cellDates: true });
+
+        wb.SheetNames.forEach(sheetName => {
+            const sheet = wb.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+            if (json.length < 3) return;
+
+            let headerRowIdx = -1, empStartCol = -1;
+            for (let r = 0; r < Math.min(5, json.length); r++) {
+                const row = json[r];
+                if (!row) continue;
+                let textCount = 0;
+                for (let c = 2; c < row.length; c++) {
+                    if (row[c] && typeof row[c] === 'string' && row[c].trim().length > 2 && !row[c].match(/^\d/)) textCount++;
+                }
+                if (textCount >= 5) {
+                    headerRowIdx = r;
+                    for (let c = 2; c < row.length; c++) {
+                        if (row[c] && typeof row[c] === 'string' && row[c].trim().length > 2 && !row[c].match(/^\d/)) { empStartCol = c; break; }
+                    }
+                    break;
+                }
+            }
+            if (headerRowIdx === -1) return;
+
+            const headerRow = json[headerRowIdx];
+            const employees = [];
+            for (let c = empStartCol; c < headerRow.length; c++) {
+                const name = (headerRow[c] || '').toString().trim();
+                if (name && name.length > 1 && !name.match(/^\d/) && name !== 'TOTAL WFO') employees.push(name);
+                else if (employees.length > 0) break;
+            }
+
+            let matchedMonth = null;
+            for (let r = headerRowIdx + 1; r < json.length; r++) {
+                const row = json[r];
+                if (!row) continue;
+                for (let c = 0; c < Math.min(3, row.length); c++) {
+                    if (row[c] && isDateLike(row[c])) {
+                        const dt = parseFlexDate(row[c]);
+                        if (dt) matchedMonth = dt.toLocaleString('en', { month: 'long', year: 'numeric' });
+                        break;
+                    }
+                }
+                if (matchedMonth) break;
+            }
+
+            if (!matchedMonth || !scheduleData[matchedMonth]) return;
+            const monthData = scheduleData[matchedMonth];
+
+            for (let r = headerRowIdx + 1; r < json.length; r++) {
+                const row = json[r];
+                if (!row) continue;
+                let dateVal = null;
+                for (let c = 0; c < Math.min(3, row.length); c++) {
+                    if (row[c] && isDateLike(row[c])) { dateVal = parseFlexDate(row[c]); break; }
+                }
+                if (!dateVal) continue;
+
+                const dataRow = monthData.rows.find(dr => {
+                    const d = new Date(dr.date);
+                    return d.getDate() === dateVal.getDate() && d.getMonth() === dateVal.getMonth() && d.getFullYear() === dateVal.getFullYear();
+                });
+                if (!dataRow) continue;
+
+                employees.forEach((emp, idx) => {
+                    const colIdx = empStartCol + idx;
+                    const originalVal = (row[colIdx] || '').toString().trim().toUpperCase();
+                    const appVal = (dataRow.shifts[emp] || '').trim().toUpperCase();
+
+                    if ((appVal === 'WFO' || appVal === 'IN') && originalVal !== 'WFO' && originalVal !== 'IN') {
+                        changes.push({ month: matchedMonth, date: dateVal.toLocaleDateString('en-GB'), emp: emp, action: 'ADD' });
+                    } else if ((originalVal === 'WFO' || originalVal === 'IN') && appVal === '') {
+                        changes.push({ month: matchedMonth, date: dateVal.toLocaleDateString('en-GB'), emp: emp, action: 'REMOVE' });
+                    }
+                });
+            }
+        });
+
+        // Download the original file as-is (preserves ALL formatting)
+        const blob = new Blob([originalFileData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'WFO_Schedule.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        // Show changes summary if any
+        if (changes.length > 0) {
+            let msg = 'File downloaded with ORIGINAL formatting preserved.\n\n';
+            msg += 'WFO CHANGES TO APPLY:\n';
+            msg += '─────────────────────\n';
+            changes.forEach(c => {
+                msg += `${c.action}: ${c.emp} on ${c.date} (${c.month})\n`;
+            });
+            msg += '\nOpen the file and type "WFO" in the listed cells.\nThe blue formatting will apply automatically if you use the original file\'s format painter.';
+            alert(msg);
+        } else {
+            alert('File downloaded - no WFO changes to apply.');
+        }
+    }
+
+    // ============================================================
+    // COPY SCHEDULE TO CLIPBOARD (downloads .xlsx with exact formatting)
+    // ============================================================
+    function copyScheduleToClipboard() {
+        const data = scheduleData[currentMonth];
+        if (!data) { alert('No schedule data to copy.'); return; }
+
+        const visibleEmployees = data.employees.filter(emp => emp !== 'Mark Sy');
+
+        // Border definition
+        const border = {
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } }
+        };
+
+        // Style definitions
+        const headerCellStyle = {
+            font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "FFFFFF" } },
+            fill: { patternType: "solid", fgColor: { rgb: "1F4E79" } },
+            alignment: { horizontal: "center", vertical: "center", wrapText: true },
+            border: border
+        };
+        const dateCellStyle = {
+            font: { name: "Calibri", sz: 11, color: { rgb: "000000" } },
+            fill: { patternType: "solid", fgColor: { rgb: "FFFFFF" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: border
+        };
+        const totalCellStyle = {
+            font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "000000" } },
+            fill: { patternType: "solid", fgColor: { rgb: "92D050" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: border
+        };
+
+        function getShiftStyle(val) {
+            const v = (val || '').toString().trim();
+            const upper = v.toUpperCase();
+            if (upper === 'WFO' || upper === 'IN') return {
+                font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "000000" } },
+                fill: { patternType: "solid", fgColor: { rgb: "4472C4" } },
+                alignment: { horizontal: "center", vertical: "center" },
+                border: border
+            };
+            if (upper === 'O' && v.length === 1) return {
+                font: { name: "Calibri", sz: 11, color: { rgb: "000000" } },
+                fill: { patternType: "solid", fgColor: { rgb: "92D050" } },
+                alignment: { horizontal: "center", vertical: "center" },
+                border: border
+            };
+            if (upper === 'S' && v.length === 1) return {
+                font: { name: "Calibri", sz: 11, color: { rgb: "FFFFFF" } },
+                fill: { patternType: "solid", fgColor: { rgb: "FF0000" } },
+                alignment: { horizontal: "center", vertical: "center" },
+                border: border
+            };
+            if (upper === 'H' && v.length === 1) return {
+                font: { name: "Calibri", sz: 11, color: { rgb: "000000" } },
+                fill: { patternType: "solid", fgColor: { rgb: "FFC000" } },
+                alignment: { horizontal: "center", vertical: "center" },
+                border: border
+            };
+            return dateCellStyle;
+        }
+
+        // Build rows array
+        const rows = [];
+
+        // Header row: Date | Day | employee names
+        const header = ['Date', 'Day', ...visibleEmployees];
+        rows.push(header);
+
+        // Data rows
+        let totals = {};
+        visibleEmployees.forEach(emp => { totals[emp] = 0; });
+
+        data.rows.forEach(row => {
+            const dt = new Date(row.date);
+            const dateStr = dt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const dayStr = row.day;
+            const r = [dateStr, dayStr];
+            visibleEmployees.forEach(emp => {
+                const val = (row.shifts[emp] || '').trim();
+                if (val.toUpperCase() === 'WFO' || val.toUpperCase() === 'IN') totals[emp]++;
+                r.push(val);
+            });
+            rows.push(r);
+        });
+
+        // Total row
+        const totalRow = ['TOTAL WFO', '', ...visibleEmployees.map(emp => totals[emp])];
+        rows.push(totalRow);
+
+        // Create worksheet
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const range = XLSX.utils.decode_range(ws['!ref']);
+
+        // Apply styles to all cells
+        for (let R = range.s.r; R <= range.e.r; R++) {
+            for (let C = range.s.c; C <= range.e.c; C++) {
+                const ref = XLSX.utils.encode_cell({ r: R, c: C });
+                if (!ws[ref]) ws[ref] = { v: '', t: 's' };
+
+                if (R === 0) {
+                    // Header row
+                    ws[ref].s = headerCellStyle;
+                } else if (R === range.e.r) {
+                    // Total row
+                    ws[ref].s = totalCellStyle;
+                } else if (C <= 1) {
+                    // Date and Day columns
+                    ws[ref].s = dateCellStyle;
+                } else {
+                    // Shift cells - color based on value
+                    ws[ref].s = getShiftStyle(ws[ref].v);
+                }
+            }
+        }
+
+        // Set column widths (12.00 for all)
+        ws['!cols'] = [];
+        for (let C = range.s.c; C <= range.e.c; C++) {
+            ws['!cols'].push({ wch: 12 });
+        }
+
+        // Set row heights (15.00 for all)
+        ws['!rows'] = [];
+        for (let R = range.s.r; R <= range.e.r; R++) {
+            ws['!rows'].push({ hpt: 15 });
+        }
+
+        // Create workbook and download
+        const wb = XLSX.utils.book_new();
+        const safeName = currentMonth.substring(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, safeName);
+
+        XLSX.writeFile(wb, `Schedule_${currentMonth.replace(' ', '_')}.xlsx`, { cellStyles: true });
+        alert('Schedule downloaded as Excel file with exact formatting!');
+    }
+
+    // ============================================================
+    // LOGIN SYSTEM
+    // ============================================================
+    let loggedInEmployee = null;
+
+    // Generate usernames: first letter of first name + last name (lowercase)
+    function generateUsername(fullName) {
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length < 2) return fullName.toLowerCase();
+        const first = parts[0].charAt(0).toLowerCase();
+        const last = parts[parts.length - 1].toLowerCase();
+        return first + last;
+    }
+
+    function getPasswords() {
+        const saved = localStorage.getItem('wfo_passwords');
+        return saved ? JSON.parse(saved) : {};
+    }
+
+    function savePasswords(passwords) {
+        localStorage.setItem('wfo_passwords', JSON.stringify(passwords));
+    }
+
+    function doLogin() {
+        const user = document.getElementById('loginUser').value.trim().toLowerCase();
+        const pass = document.getElementById('loginPass').value;
+        const errEl = document.getElementById('loginError');
+
+        if (!user || !pass) { errEl.textContent = 'Enter username and password'; errEl.style.display = 'block'; return; }
+
+        // Find matching employee
+        const passwords = getPasswords();
+        let matchedEmp = null;
+        DEFAULT_EMPLOYEES.forEach(emp => {
+            if (generateUsername(emp) === user) matchedEmp = emp;
+        });
+
+        if (!matchedEmp) { errEl.textContent = 'Username not found'; errEl.style.display = 'block'; return; }
+
+        // Check password (default is 1234)
+        const empPass = passwords[user] || '1234';
+        if (pass !== empPass) { errEl.textContent = 'Incorrect password'; errEl.style.display = 'block'; return; }
+
+        // Success
+        loggedInEmployee = matchedEmp;
+        localStorage.setItem('wfo_logged_in', matchedEmp);
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        document.getElementById('loggedInUser').textContent = '| ' + matchedEmp;
+        errEl.style.display = 'none';
+
+        // Show admin buttons only for authorized users
+        const admins = ['Joshua Curtis', 'Patrick Uy', 'Bryan Lustria', 'Roman Paco'];
+        if (admins.includes(matchedEmp)) {
+            document.getElementById('btnRemoveWFO').style.display = '';
+            document.getElementById('btnCopySchedule').style.display = '';
+            document.getElementById('tabImport').style.display = '';
+        }
+    }
+
+    function doLogout() {
+        loggedInEmployee = null;
+        localStorage.removeItem('wfo_logged_in');
+        document.getElementById('mainApp').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('loginUser').value = '';
+        document.getElementById('loginPass').value = '';
+        // Hide admin buttons
+        document.getElementById('btnRemoveWFO').style.display = 'none';
+        document.getElementById('btnCopySchedule').style.display = 'none';
+        document.getElementById('tabImport').style.display = 'none';
+    }
+
+    function showChangePassword() {
+        const currentPass = prompt('Enter current password:');
+        if (!currentPass) return;
+
+        const user = generateUsername(loggedInEmployee);
+        const passwords = getPasswords();
+        const storedPass = passwords[user] || '1234';
+
+        if (currentPass !== storedPass) { alert('Current password is incorrect.'); return; }
+
+        const newPass = prompt('Enter new password:');
+        if (!newPass || newPass.length < 4) { alert('Password must be at least 4 characters.'); return; }
+
+        const confirmPass = prompt('Confirm new password:');
+        if (newPass !== confirmPass) { alert('Passwords do not match.'); return; }
+
+        passwords[user] = newPass;
+        savePasswords(passwords);
+        alert('Password changed successfully!');
+    }
+
+    // Allow Enter key to login
+    document.getElementById('loginPass').addEventListener('keypress', function(e) { if (e.key === 'Enter') doLogin(); });
+    document.getElementById('loginUser').addEventListener('keypress', function(e) { if (e.key === 'Enter') document.getElementById('loginPass').focus(); });
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    initDefaultData();
+
+    // Auto-login if session exists
+    (function() {
+        const savedUser = localStorage.getItem('wfo_logged_in');
+        if (savedUser && DEFAULT_EMPLOYEES.includes(savedUser)) {
+            loggedInEmployee = savedUser;
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            document.getElementById('loggedInUser').textContent = '| ' + savedUser;
+            const admins = ['Joshua Curtis', 'Patrick Uy', 'Bryan Lustria', 'Roman Paco'];
+            if (admins.includes(savedUser)) {
+                document.getElementById('btnRemoveWFO').style.display = '';
+                document.getElementById('btnCopySchedule').style.display = '';
+                document.getElementById('tabImport').style.display = '';
+            }
+        }
+    })();
+    </script>
+    </div><!-- close mainApp -->
+</body>
+</html>
